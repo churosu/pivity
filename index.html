@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pivity</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EDEFEB; --board:#DCE0DA; --cell:#E5E8E2; --line:#CDD2CB; --ink:#202A2E; --sub:#5F6B6C;
+  --wall:#1E2426; --wall-hi:#2E3538; --panel:#F6F7F4;
+  --up:#FFB0A2; --right:#A8E6D3; --down:#B8CCFF; --left:#E8C6F2; --goal:#D9A93A; --cube:#5D6873;
+  --display:"Dela Gothic One","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic","Meiryo",system-ui,sans-serif;
+  --tick:110ms;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#1C2127; --board:#262C34; --cell:#2C333C; --line:#39414C; --ink:#ECE8E1; --sub:#9AA2A8;
+    --wall:#0A0C0F; --wall-hi:#16191E; --panel:#2A3039;
+    --up:#D0604F; --right:#2F8F7A; --down:#4E6FC0; --left:#9160A8; --goal:#EFCB7B; --cube:#F4F1EB;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1C2127; --board:#262C34; --cell:#2C333C; --line:#39414C; --ink:#ECE8E1; --sub:#9AA2A8;
+  --wall:#0A0C0F; --wall-hi:#16191E; --panel:#2A3039;
+  --up:#D0604F; --right:#2F8F7A; --down:#4E6FC0; --left:#9160A8; --goal:#EFCB7B; --cube:#F4F1EB;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--body);font-weight:500;
+  -webkit-tap-highlight-color:transparent;overflow-x:hidden}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--goal);outline-offset:2px}
+.screen{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:16px 14px 24px}
+.screen[hidden]{display:none}
+
+/* ---------- buttons ---------- */
+.btn{border:0;cursor:pointer;border-radius:12px;padding:12px 20px;font-weight:700;font-size:16px;
+  background:var(--panel);color:var(--ink);box-shadow:inset 0 -3px 0 rgba(0,0,0,.12);transition:transform .08s}
+.btn:active{transform:translateY(2px);box-shadow:inset 0 -2px 0 rgba(0,0,0,.18)}
+.btn.primary{background:var(--ink);color:var(--bg)}
+.btn.small{padding:8px 14px;font-size:14px;border-radius:10px}
+.iconbtn{border:0;background:none;cursor:pointer;padding:8px;border-radius:10px;font-size:15px;font-weight:700;color:var(--sub)}
+
+/* ---------- title ---------- */
+#title{justify-content:center;gap:28px;overflow:hidden;position:relative}
+.logo-wrap{position:relative;width:min(92vw,760px);aspect-ratio:10/4;display:grid;place-items:center}
+.logo{font-family:var(--display);font-weight:400;font-size:min(13vw,120px);line-height:1.1;letter-spacing:.01em;margin:0;display:flex;white-space:nowrap}
+.logo span{display:inline-block}
+.logo{color:var(--ink)}
+.logo.hide{visibility:hidden}
+.cover{position:absolute;inset:0;pointer-events:none;z-index:5}
+.cover .icube{position:absolute;width:10%;height:25%}
+.title-ui{display:flex;flex-direction:column;align-items:center;gap:22px;opacity:0;transform:translateY(8px);transition:opacity .5s,transform .5s}
+#title.revealed .title-ui{opacity:1;transform:none}
+.tagline{margin:0;color:var(--sub);font-size:17px;letter-spacing:.08em}
+.title-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.title-actions .btn{min-width:170px}
+.skip{position:absolute;bottom:calc(18px + env(safe-area-inset-bottom,0px));font-size:13px;color:var(--sub);opacity:.8}
+#title.revealed .skip{display:none}
+
+/* ---------- cube (shared) ---------- */
+.face{position:absolute;inset:7%;border-radius:24%;display:grid;place-items:center;background:var(--cube);
+  box-shadow:inset 0 -.2em 0 rgba(0,0,0,.14), 0 .12em .3em rgba(0,0,0,.18);
+  transition:transform calc(var(--tick) * 3) cubic-bezier(.3,1.4,.5,1), color .3s}
+.face svg{width:58%;height:58%;display:block}
+[data-d="0"]>.pop>.face,[data-d="0"]>.face{color:var(--up)}
+[data-d="1"]>.pop>.face,[data-d="1"]>.face{color:var(--right)}
+[data-d="2"]>.pop>.face,[data-d="2"]>.face{color:var(--down)}
+[data-d="3"]>.pop>.face,[data-d="3"]>.face{color:var(--left)}
+
+/* ---------- select ---------- */
+.topbar{width:min(100%,600px);display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px}
+.topbar h2{font-family:var(--display);font-weight:400;font-size:22px;margin:0;flex:1;text-align:center}
+.topbar .spacer{width:120px}
+.sound{position:fixed;top:calc(env(safe-area-inset-top,0px) + 14px);right:12px;display:flex;gap:4px;z-index:40}
+.sndbtn{display:flex;align-items:center;gap:4px;border:0;background:var(--panel);color:var(--sub);cursor:pointer;border-radius:10px;padding:6px 8px;font-size:11px;font-weight:700}
+.sndbtn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.sndbtn .x{display:none}
+.sndbtn[aria-pressed="false"]{opacity:.55}
+.sndbtn[aria-pressed="false"] .x{display:inline}
+.sndbtn[aria-pressed="false"] .w{display:none}
+.rules{width:min(100%,600px);margin:10px 0 18px;padding:14px 16px;border-radius:14px;background:var(--panel);font-size:14px;line-height:1.75;color:var(--sub)}
+.rules p{margin:0}
+.stages{width:min(100%,600px)}
+.tally{display:flex;align-items:center;gap:4px;font-weight:700;color:var(--sub);margin:0 0 4px;align-self:center}
+.tally .of{margin-left:4px;font-weight:500}
+.tally span{margin-right:8px}
+.group{display:flex;align-items:center;gap:6px;margin:22px 2px 10px;font-family:var(--display);font-weight:400;font-size:18px}
+.group span:not(.sw){margin-left:4px}
+.group small{margin-left:auto;font-family:var(--body);font-size:13px;color:var(--sub);font-weight:700}
+.sw{width:16px;height:16px;border-radius:4px;border:2px dashed var(--goal);
+  background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--goal) 55%,transparent) 0 2px,transparent 2px 5px)}
+.stagegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:9px}
+.stage{position:relative;aspect-ratio:1;border:0;cursor:pointer;border-radius:14px;background:var(--board);
+  box-shadow:inset 0 -3px 0 rgba(0,0,0,.1);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px}
+.stage .num{font-family:var(--display);font-size:clamp(20px,6vw,30px);line-height:1}
+.stage .nm{font-size:10.5px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.stage .tile-star{position:absolute;top:2px;right:2px;width:24px;height:24px}
+.testtile{width:100%;margin-top:24px;aspect-ratio:auto;gap:6px;padding:18px;border:3px dashed var(--goal);
+  background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--goal) 22%,transparent) 0 6px,transparent 6px 14px),var(--board)}
+.testtile .num{font-size:22px;white-space:nowrap}
+.testtile .nm{font-size:13px}
+
+/* ---------- stars ---------- */
+.star .s-body{fill:var(--ink);stroke:var(--ink);stroke-width:1.2;stroke-linejoin:round}
+.star.shine{overflow:visible;filter:drop-shadow(0 0 3px color-mix(in srgb,var(--goal) 80%,transparent))}
+.star.shine .s-body{fill:var(--goal);stroke:color-mix(in srgb,var(--goal) 50%,#fff);stroke-width:1.1}
+.star.shine .s-glint{stroke:#fff;stroke-width:1.6;stroke-linecap:round;opacity:.9}
+.star.shine .rays line{stroke:var(--goal);stroke-width:1.8;stroke-linecap:round}
+.star.shine .rays{transform-origin:12px 12px;animation:twinkle 1.8s ease-in-out infinite}
+@keyframes twinkle{0%,100%{opacity:.35;transform:scale(.85)}50%{opacity:1;transform:scale(1.05)}}
+.star.mini{width:18px;height:18px}
+.star.big{width:84px;height:84px;display:block;margin:0 auto 6px}
+
+/* ---------- game ---------- */
+.hud{width:min(100%,560px);display:flex;align-items:baseline;justify-content:space-between;margin:6px 0 10px;gap:10px}
+.hud .stname{font-family:var(--display);font-size:20px}
+.hud .count{font-size:15px;color:var(--sub);white-space:nowrap}
+.hud .count b{font-family:var(--display);font-weight:400;font-size:24px;color:var(--ink);margin-right:2px}
+.board{position:relative;width:min(94vw,58vh,560px);aspect-ratio:1;background:var(--board);border-radius:14px;
+  padding:0;touch-action:manipulation;user-select:none;-webkit-user-select:none;box-shadow:0 0 0 6px var(--board)}
+.cells{position:absolute;inset:0;display:grid;grid-template-columns:repeat(9,1fr);grid-template-rows:repeat(9,1fr)}
+.cells i{border-radius:12%;margin:3%;background:var(--cell)}
+.layer{position:absolute;inset:0}
+.piece{position:absolute;left:0;top:0;width:calc(100% / 9);height:calc(100% / 9)}
+.cube{border:0;padding:0;background:none;cursor:pointer;font-size:clamp(9px,2.6vw,15px);transition:transform var(--tick) linear;z-index:3}
+.cube .pop{position:absolute;inset:0}
+.cube .pop.bump{animation:bump .33s ease}
+@keyframes bump{30%{transform:scale(.8)}70%{transform:scale(1.08)}}
+.cube.win .pop{animation:winpulse .9s ease infinite}
+@keyframes winpulse{50%{transform:scale(1.12)}}
+.wall{z-index:1}
+.wall::before{content:"";position:absolute;inset:3%;border-radius:14%;background:var(--wall);
+  box-shadow:inset 0 3px 0 var(--wall-hi)}
+.goal{z-index:0}
+.goal::before{content:"";position:absolute;inset:5%;border-radius:12%;border:3px dashed var(--goal);
+  background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--goal) 55%,transparent) 0 3px,transparent 3px 8px)}
+.goal.filled::before{border-style:solid}
+.goal.lit::before{background:var(--goal);box-shadow:0 0 22px var(--goal)}
+.board.playing{touch-action:none}
+.cube.dragging{z-index:20}
+.guide{position:absolute;inset:-100%;pointer-events:none;display:none}
+.cube.dragging .guide{display:block}
+.guide .g{position:absolute;width:33.34%;height:33.34%;display:grid;place-items:center;opacity:.35;transition:opacity .1s,transform .1s}
+.guide .g svg{width:55%;height:55%;padding:8%;border-radius:30%;background:var(--ink);box-sizing:content-box}
+.guide .g svg path{fill:var(--bg)}
+.guide .g0{left:33.33%;top:0}.guide .g1{left:66.66%;top:33.33%;transform:rotate(90deg)}
+.guide .g2{left:33.33%;top:66.66%;transform:rotate(180deg)}.guide .g3{left:0;top:33.33%;transform:rotate(270deg)}
+.guide[data-cur="0"] .g0,.guide[data-cur="1"] .g1,.guide[data-cur="2"] .g2,.guide[data-cur="3"] .g3{opacity:.15}
+.guide[data-sel="0"] .g0,.guide[data-sel="1"] .g1,.guide[data-sel="2"] .g2,.guide[data-sel="3"] .g3{opacity:1}
+.guide[data-sel] .g svg{background:var(--cube)}
+.guide[data-sel="0"] .g0 svg path{fill:var(--up)}.guide[data-sel="1"] .g1 svg path{fill:var(--right)}
+.guide[data-sel="2"] .g2 svg path{fill:var(--down)}.guide[data-sel="3"] .g3 svg path{fill:var(--left)}
+.hint{width:min(100%,560px);min-height:1.6em;margin:16px 0 8px;font-size:15px;color:var(--sub);text-align:center;line-height:1.6}
+.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+
+/* ---------- test room ---------- */
+.mode[hidden]{display:none}
+.mode{display:inline-flex;background:var(--panel);border-radius:12px;padding:4px;gap:4px}
+.mode button{border:0;background:none;cursor:pointer;padding:7px 16px;border-radius:9px;font-weight:700;color:var(--sub)}
+.mode button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.palette{display:flex;gap:6px;margin:16px 0 6px;flex-wrap:wrap;justify-content:center}
+.tool{position:relative;width:48px;height:48px;border:0;border-radius:12px;background:var(--panel);cursor:pointer;padding:0;font-size:12px}
+.tool[aria-pressed="true"]{box-shadow:0 0 0 3px var(--ink)}
+.tool .face{inset:12%;font-size:10px}
+.tool.t-wall::after{content:"";position:absolute;inset:12%;border-radius:14%;background:var(--wall);box-shadow:inset 0 3px 0 var(--wall-hi)}
+.tool.t-goal::after{content:"";position:absolute;inset:12%;border-radius:12%;border:3px dashed var(--goal);
+  background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--goal) 55%,transparent) 0 3px,transparent 3px 8px)}
+.tool.t-erase{font-weight:700;color:var(--sub)}
+.tool-label{font-size:13px;color:var(--sub);margin:0 0 10px;min-height:1.4em}
+.codebox{width:min(100%,560px);margin-top:14px;font-size:14px}
+.codebox summary{cursor:pointer;color:var(--sub);font-weight:700;padding:6px 0}
+.codebox textarea{width:100%;height:84px;margin:8px 0;border-radius:10px;border:2px solid var(--line);background:var(--panel);color:var(--ink);
+  font:13px/1.4 ui-monospace,Menlo,monospace;padding:8px;resize:vertical}
+#editUI{display:flex;flex-direction:column;align-items:center;width:100%}
+#editUI[hidden],#playUI[hidden]{display:none}
+.board.editing{cursor:crosshair}
+.board.editing .cube{cursor:crosshair;pointer-events:none}
+
+/* ---------- overlay ---------- */
+.overlay{position:fixed;inset:0;display:grid;place-items:center;background:color-mix(in srgb,var(--bg) 70%,transparent);z-index:50;padding:20px}
+.overlay[hidden]{display:none}
+.card{background:var(--panel);border-radius:20px;padding:26px 24px 22px;width:min(92vw,360px);text-align:center;box-shadow:0 16px 40px rgba(0,0,0,.25);
+  animation:cardin .35s cubic-bezier(.3,1.4,.5,1)}
+@keyframes cardin{from{transform:scale(.85);opacity:0}}
+.card h3{font-family:var(--display);font-weight:400;font-size:30px;margin:0 0 8px}
+.card p{margin:0 0 20px;color:var(--sub);line-height:1.6}
+.card .actions{flex-direction:column}
+.card .btn{width:100%}
+.toast{position:fixed;left:50%;bottom:calc(28px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);
+  padding:12px 20px;border-radius:12px;font-weight:700;z-index:60;width:max-content;max-width:90vw;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.toast[hidden]{display:none}
+
+@media (max-width:420px){
+  .stages{gap:8px}
+  .tool{width:42px;height:42px}
+}
+@media (prefers-reduced-motion:reduce){
+  .cube{transition:none}
+  .face{transition:none}
+  .cube .pop.bump,.cube.win .pop,.card,.star.shine .rays{animation:none}
+}
+</style>
+</head>
+<body>
+<div class="sound" role="group" aria-label="サウンド">
+  <button class="sndbtn" id="sndBgm" aria-label="BGM" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 17.5V6l10-2v11.5"/><circle cx="6.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="15.5" r="2.5"/><line class="x" x1="3" y1="3" x2="21" y2="21"/></svg><span>BGM</span></button>
+  <button class="sndbtn" id="sndSe" aria-label="効果音" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h4l5-4v13l-5-4H4z"/><path class="w" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/><line class="x" x1="3" y1="3" x2="21" y2="21"/></svg><span>SE</span></button>
+</div>
+<section class="screen" id="title">
+  <div class="logo-wrap">
+    <h1 class="logo hide" id="logo" aria-label="Pivity"><span>P</span><span>I</span><span>V</span><span>I</span><span>T</span><span>Y</span></h1>
+    <div class="cover" id="cover" aria-hidden="true"></div>
+  </div>
+  <div class="title-ui">
+    <p class="tagline">回して、落として、ゴールへ。</p>
+    <div class="title-actions">
+      <button class="btn primary" id="toSelect">ステージを選ぶ</button>
+      <button class="btn" id="toTestFromTitle">テストルーム</button>
+    </div>
+  </div>
+  <div class="skip">タップでスキップ</div>
+</section>
+
+<section class="screen" id="select" hidden>
+  <div class="topbar">
+    <button class="iconbtn" id="selBack">← タイトル</button>
+    <h2>ステージ</h2>
+    <span class="spacer"></span>
+  </div>
+  <div class="rules">
+    <p>キューブは矢印の方向へ、ぶつかるまで進みます。キューブをフリック（PCはドラッグ）すると、その方向へ向きが変わります。2つのキューブが同じマスを狙うと、手前で止まって時計回りに1回転。黄色いゴールすべてにキューブを止めればクリアです。</p>
+  </div>
+  <div class="tally" id="tally"></div>
+  <div class="stages" id="stages"></div>
+</section>
+
+<section class="screen" id="game" hidden>
+  <div class="topbar">
+    <button class="iconbtn" id="gameBack">← ステージ</button>
+    <div class="mode" id="modeSwitch" hidden>
+      <button id="modeEdit" aria-pressed="true">Edit</button>
+      <button id="modePlay" aria-pressed="false">Play</button>
+    </div>
+    <span class="spacer"></span>
+  </div>
+  <div class="hud">
+    <span class="stname" id="stName"></span>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="board" id="board">
+    <div class="cells" id="cells"></div>
+    <div class="layer" id="layer"></div>
+  </div>
+
+  <div id="playUI">
+    <p class="hint" id="hint"></p>
+    <div class="actions"><button class="btn small" id="restart">やり直す</button></div>
+  </div>
+
+  <div id="editUI" hidden>
+    <div class="palette" id="palette"></div>
+    <p class="tool-label" id="toolLabel"></p>
+    <div class="actions">
+      <button class="btn small" id="clearAll">すべて消す</button>
+      <button class="btn small primary" id="playBtn">Playで試す</button>
+    </div>
+    <details class="codebox">
+      <summary>ステージコード</summary>
+      <textarea id="codeText" spellcheck="false" aria-label="ステージコード"></textarea>
+      <div class="actions">
+        <button class="btn small" id="copyCode">コピー</button>
+        <button class="btn small" id="loadCode">このコードを読み込む</button>
+      </div>
+    </details>
+  </div>
+</section>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="ovTitle">
+    <div id="ovIcon"></div>
+    <h3 id="ovTitle">クリア</h3>
+    <p id="ovText"></p>
+    <div class="actions" id="ovActions"></div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<script>
+// ===== Pivity engine (shared) =====
+const N = 9;
+const DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0]; // 0↑ 1→ 2↓ 3←
+const ROT_TICKS = 3;
+const GOAL_HOLD = 12;
+function makeState(lv) {
+  return {
+    cubes: lv.cubes.map((c, i) => ({ id: i, x: c[0], y: c[1], d: c[2], nd: c[2], rot: 0, hold: 0 })),
+    walls: new Set(lv.walls.map(w => w[1] * N + w[0])),
+    goals: (lv.goals || []).map(g => g.slice()),
+    tick: 0
+  };
+}
+function stepState(s) {
+  const ev = { moved: [], collided: [], rotDone: [] };
+  for (const c of s.cubes) {
+    if (c.rot > 0 && --c.rot === 0) { c.d = c.nd; ev.rotDone.push(c); }
+  }
+  const occ = new Set();
+  for (const c of s.cubes) occ.add(c.y * N + c.x);
+  const want = new Map();
+  for (const c of s.cubes) {
+    if (c.rot > 0) continue;
+    const nx = c.x + DX[c.d], ny = c.y + DY[c.d];
+    if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+    const k = ny * N + nx;
+    if (s.walls.has(k) || occ.has(k)) continue;
+    if (!want.has(k)) want.set(k, []);
+    want.get(k).push(c);
+  }
+  const movedSet = new Set();
+  for (const [k, arr] of want) {
+    if (arr.length === 1) { const c = arr[0]; c.x = k % N; c.y = (k / N) | 0; ev.moved.push(c); movedSet.add(c); }
+    else if (!s.noRot) for (const c of arr) { c.rot = ROT_TICKS; c.nd = (c.d + 1) % 4; ev.collided.push(c); }
+  }
+  s.tick++;
+  const stable = ev.moved.length === 0 && ev.collided.length === 0 && s.cubes.every(c => c.rot === 0);
+  for (const c of s.cubes) {
+    if (c.rot === 0 && !movedSet.has(c)) c.hold++; else c.hold = 0;
+  }
+  let win = s.goals.length > 0;
+  for (const g of s.goals) {
+    const c = s.cubes.find(c => c.x === g[0] && c.y === g[1]);
+    if (!c || !(stable || c.hold >= GOAL_HOLD)) { win = false; break; }
+  }
+  ev.stable = stable; ev.win = win;
+  return ev;
+}
+// flick: set cube's next direction. returns true if it counts as a move
+function flickCube(c, d) {
+  if (c.rot > 0) { if (c.nd === d) return false; c.nd = d; return true; }
+  if (c.d === d) return false;
+  c.nd = d; c.rot = ROT_TICKS; return true;
+}
+if (typeof module !== 'undefined') module.exports = { N, DX, DY, ROT_TICKS, makeState, stepState, flickCube };
+
+const LEVELS = [{"name": "はじめの一手", "hint": "キューブをフリック（PCはドラッグ）すると、その方向へ向きが変わります。", "par": 1, "req": 1, "cubes": [[8, 4, 1]], "walls": [], "goals": [[8, 8]]}, {"name": "曲がり角", "hint": "向きが変わり終わると、すぐに矢印の方向へ進みます。", "par": 2, "req": 1, "cubes": [[0, 0, 0]], "walls": [[5, 0]], "goals": [[4, 8]]}, {"name": "寄り道", "hint": "2つのキューブが同じマスを狙うと、手前で止まって時計回りに1回転します。", "par": 2, "req": 2, "cubes": [[7, 6, 1], [7, 5, 2], [8, 6, 3]], "walls": [[7, 3], [8, 4], [3, 7]], "goals": [[1, 5]]}, {"name": "通せんぼ", "hint": "壁やほかのキューブにぶつかると止まります。", "par": 2, "req": 1, "cubes": [[2, 8, 2], [1, 4, 2], [0, 2, 3]], "walls": [[1, 5], [1, 0], [0, 4], [4, 5], [3, 3]], "goals": [[0, 5]]}, {"name": "すれ違い", "hint": "", "par": 2, "req": 1, "cubes": [[1, 8, 2], [0, 5, 3], [8, 1, 1]], "walls": [[4, 8], [3, 3], [0, 6], [5, 7], [7, 4], [7, 6]], "goals": [[3, 4]]}, {"name": "段差", "hint": "", "par": 2, "req": 1, "cubes": [[3, 8, 2], [0, 6, 3], [8, 7, 1]], "walls": [[5, 3], [1, 3], [6, 4], [7, 5], [3, 2], [1, 1]], "goals": [[4, 3]]}, {"name": "抜け道", "hint": "", "par": 3, "req": 2, "cubes": [[4, 0, 0], [0, 5, 3], [1, 8, 2]], "walls": [[2, 4], [0, 6], [0, 8], [3, 7], [4, 7], [4, 8]], "goals": [[8, 4]]}, {"name": "行き止まり", "hint": "", "par": 3, "req": 2, "cubes": [[8, 4, 1], [0, 2, 3], [7, 0, 0], [8, 3, 1]], "walls": [[2, 8], [2, 3], [6, 5], [0, 6], [8, 1], [0, 7]], "goals": [[1, 7]]}, {"name": "迂回路", "hint": "", "par": 3, "req": 2, "cubes": [[0, 3, 3], [5, 8, 2], [6, 8, 2], [4, 2, 0]], "walls": [[5, 2], [8, 6], [3, 6], [8, 4], [7, 5], [4, 1], [8, 1]], "goals": [[5, 0]]}, {"name": "回り道", "hint": "", "par": 4, "req": 2, "cubes": [[2, 0, 0], [8, 8, 1], [8, 3, 1], [8, 4, 1]], "walls": [[7, 4], [7, 0], [5, 0], [5, 2], [4, 8], [5, 3]], "goals": [[5, 7]]}, {"name": "右の塔", "hint": "", "par": 4, "req": 2, "cubes": [[7, 3, 0], [7, 2, 2], [6, 3, 1], [3, 2, 2]], "walls": [[6, 7], [6, 6], [1, 3], [5, 1], [3, 3], [7, 6], [7, 8]], "goals": [[8, 6]]}, {"name": "落とし穴", "hint": "", "par": 6, "req": 2, "cubes": [[3, 4, 3], [3, 3, 2], [2, 4, 1], [2, 7, 2]], "walls": [[2, 8], [4, 3], [8, 1], [3, 2], [1, 7], [5, 3], [7, 4]], "goals": [[7, 6]]}, {"name": "見張り", "hint": "", "par": 7, "req": 3, "cubes": [[3, 7, 2], [2, 7, 1], [3, 8, 0], [0, 5, 3]], "walls": [[6, 4], [0, 0], [6, 8], [1, 3], [5, 0], [3, 4], [2, 2]], "goals": [[5, 4]]}, {"name": "長い坂", "hint": "", "par": 8, "req": 3, "cubes": [[7, 5, 0], [7, 4, 2], [6, 5, 1], [3, 0, 0]], "walls": [[7, 6], [6, 3], [8, 4], [1, 3], [8, 3], [4, 1], [6, 1]], "goals": [[5, 6]]}, {"name": "ふたつの印", "hint": "ゴールが2つ。すべてのゴールにキューブを止めるとクリアです。", "par": 3, "req": 3, "cubes": [[1, 7, 3], [0, 4, 3], [0, 5, 2]], "walls": [[0, 6], [3, 0], [5, 6], [0, 7], [4, 1], [8, 6]], "goals": [[1, 0], [0, 1]]}, {"name": "並走", "hint": "", "par": 4, "req": 2, "cubes": [[4, 8, 3], [3, 8, 1], [3, 0, 0], [8, 6, 1], [1, 3, 3]], "walls": [[6, 2], [5, 5], [1, 7], [6, 6], [1, 6], [3, 4], [0, 3]], "goals": [[1, 2], [8, 8]]}, {"name": "待ち合わせ", "hint": "", "par": 4, "req": 2, "cubes": [[5, 4, 2], [2, 6, 2], [6, 8, 2], [2, 5, 2], [4, 0, 0]], "walls": [[0, 0], [6, 1], [7, 4], [3, 1], [3, 7], [5, 5], [2, 7], [4, 3]], "goals": [[1, 0], [2, 4]]}, {"name": "交差点", "hint": "", "par": 4, "req": 3, "cubes": [[0, 0, 0], [8, 2, 1], [1, 0, 0], [8, 4, 1]], "walls": [[0, 7], [1, 7], [1, 6], [7, 1], [5, 1], [5, 5], [0, 4]], "goals": [[7, 0], [6, 8]]}, {"name": "二重扉", "hint": "", "par": 5, "req": 2, "cubes": [[6, 0, 0], [8, 2, 1], [3, 3, 3], [7, 6, 1], [0, 1, 3]], "walls": [[8, 6], [0, 5], [4, 2], [7, 5], [1, 6], [2, 3], [0, 6]], "goals": [[1, 1], [5, 8]]}, {"name": "向かい風", "hint": "", "par": 5, "req": 2, "cubes": [[8, 6, 0], [6, 8, 2], [5, 8, 1], [0, 0, 3], [4, 6, 2]], "walls": [[5, 3], [3, 0], [5, 7], [4, 7], [8, 5], [8, 2], [7, 3], [1, 5]], "goals": [[2, 5], [7, 8]]}, {"name": "挟み撃ち", "hint": "", "par": 5, "req": 2, "cubes": [[5, 6, 3], [0, 3, 3], [3, 6, 1], [4, 1, 0], [0, 4, 3]], "walls": [[4, 0], [2, 8], [5, 2], [7, 1], [2, 2], [5, 8], [4, 6]], "goals": [[8, 0], [7, 2]]}, {"name": "積み木", "hint": "", "par": 5, "req": 3, "cubes": [[0, 5, 3], [2, 2, 0], [4, 3, 2], [3, 1, 3], [1, 1, 2], [5, 2, 3]], "walls": [[4, 4], [4, 2], [5, 8], [5, 3], [1, 2], [0, 6], [2, 1], [4, 5]], "goals": [[0, 0], [8, 3]]}, {"name": "遠回り", "hint": "", "par": 6, "req": 2, "cubes": [[1, 3, 2], [7, 0, 0], [6, 6, 2], [4, 0, 0], [2, 5, 0]], "walls": [[2, 4], [8, 0], [2, 7], [5, 0], [1, 4], [6, 7], [0, 8], [8, 8]], "goals": [[3, 5], [3, 8]]}, {"name": "階段", "hint": "", "par": 6, "req": 3, "cubes": [[8, 5, 1], [8, 7, 1], [3, 8, 2], [6, 8, 2], [0, 0, 0]], "walls": [[3, 6], [2, 5], [2, 8], [1, 8], [1, 1], [1, 7], [6, 2], [8, 8]], "goals": [[1, 0], [7, 1]]}, {"name": "押し出し", "hint": "", "par": 6, "req": 3, "cubes": [[2, 5, 3], [1, 5, 1], [2, 6, 0], [7, 2, 0]], "walls": [[3, 1], [7, 1], [3, 4], [0, 6], [3, 6], [8, 1], [1, 0]], "goals": [[1, 3], [1, 8]]}, {"name": "渋滞", "hint": "", "par": 7, "req": 3, "cubes": [[1, 0, 0], [0, 6, 2], [8, 2, 1], [3, 8, 2]], "walls": [[7, 3], [1, 8], [8, 4], [0, 7], [5, 8], [5, 4], [1, 7]], "goals": [[4, 7], [2, 8]]}, {"name": "連鎖", "hint": "", "par": 7, "req": 4, "cubes": [[5, 2, 3], [4, 2, 1], [5, 3, 0], [8, 4, 1]], "walls": [[8, 2], [0, 7], [6, 1], [2, 2], [5, 7], [4, 0], [7, 5]], "goals": [[7, 0], [7, 7]]}, {"name": "背中合わせ", "hint": "", "par": 8, "req": 3, "cubes": [[7, 5, 1], [7, 4, 2], [8, 5, 3], [8, 0, 1]], "walls": [[7, 1], [6, 8], [0, 3], [4, 6], [7, 2], [0, 7], [3, 6]], "goals": [[3, 1], [0, 4]]}, {"name": "双子の塔", "hint": "", "par": 8, "req": 4, "cubes": [[1, 7, 2], [0, 7, 1], [1, 8, 0], [0, 8, 0]], "walls": [[3, 6], [5, 1], [2, 4], [0, 1], [0, 4], [0, 5], [7, 5]], "goals": [[6, 2], [7, 6]]}, {"name": "みっつの印", "hint": "ゴールが3つになりました。", "par": 4, "req": 2, "cubes": [[8, 6, 1], [5, 2, 2], [7, 8, 2], [6, 1, 0], [6, 0, 0]], "walls": [[1, 0], [5, 3], [4, 5], [4, 0], [3, 4], [5, 4], [2, 6], [0, 2]], "goals": [[5, 0], [8, 1], [7, 7]]}, {"name": "三叉路", "hint": "", "par": 4, "req": 3, "cubes": [[5, 4, 1], [8, 8, 2], [5, 0, 0], [2, 5, 3], [0, 4, 3]], "walls": [[7, 4], [4, 2], [2, 0], [1, 5], [6, 4], [2, 8], [0, 0]], "goals": [[3, 0], [6, 0], [8, 1]]}, {"name": "合流", "hint": "", "par": 5, "req": 3, "cubes": [[6, 0, 0], [4, 0, 1], [5, 8, 1], [8, 0, 0], [5, 5, 2]], "walls": [[5, 6], [5, 0], [4, 5], [0, 4], [4, 6], [6, 8], [3, 5], [7, 2]], "goals": [[7, 0], [8, 3], [8, 4]]}, {"name": "仕分け", "hint": "", "par": 5, "req": 3, "cubes": [[3, 7, 2], [7, 3, 0], [3, 8, 2], [8, 6, 1], [8, 0, 1], [3, 4, 3]], "walls": [[8, 1], [0, 7], [0, 4], [8, 7], [7, 2], [1, 1], [2, 4], [6, 1]], "goals": [[8, 3], [3, 5], [4, 5]]}, {"name": "玉突き", "hint": "", "par": 5, "req": 3, "cubes": [[5, 7, 2], [4, 1, 0], [4, 3, 3], [3, 3, 1], [8, 0, 1], [2, 0, 1]], "walls": [[4, 0], [7, 4], [3, 8], [6, 5], [7, 2], [2, 4], [1, 8], [5, 8], [3, 0]], "goals": [[7, 0], [4, 2], [8, 2]]}, {"name": "渦", "hint": "", "par": 6, "req": 3, "cubes": [[1, 0, 3], [8, 4, 1], [0, 0, 0], [5, 6, 1], [1, 8, 2], [8, 2, 1]], "walls": [[3, 5], [5, 3], [4, 2], [0, 5], [0, 3], [2, 1], [6, 1], [6, 6], [2, 4]], "goals": [[8, 1], [8, 3], [7, 4]]}, {"name": "迷い道", "hint": "", "par": 6, "req": 4, "cubes": [[1, 1, 3], [2, 0, 0], [8, 6, 1], [0, 1, 3], [0, 5, 0], [5, 0, 0]], "walls": [[0, 6], [6, 5], [0, 4], [2, 8], [6, 3], [8, 8], [8, 4], [1, 6]], "goals": [[3, 0], [8, 0], [5, 4]]}, {"name": "城壁", "hint": "", "par": 7, "req": 3, "cubes": [[4, 6, 2], [3, 2, 2], [6, 6, 2], [4, 7, 3], [7, 0, 0]], "walls": [[6, 7], [5, 0], [4, 8], [3, 7], [3, 3], [3, 5], [5, 2], [7, 1]], "goals": [[3, 0], [6, 5], [2, 8]]}, {"name": "分岐点", "hint": "", "par": 7, "req": 3, "cubes": [[0, 2, 3], [8, 0, 0], [0, 0, 3], [3, 7, 2], [1, 4, 0]], "walls": [[0, 6], [3, 8], [1, 3], [1, 7], [1, 8], [7, 7], [2, 4], [5, 4], [4, 3]], "goals": [[1, 0], [1, 1], [8, 1]]}, {"name": "折り返し", "hint": "", "par": 7, "req": 3, "cubes": [[0, 5, 3], [8, 8, 1], [4, 8, 2], [6, 8, 2], [0, 2, 3]], "walls": [[5, 0], [8, 5], [2, 8], [5, 1], [0, 0], [8, 0], [0, 6], [4, 4], [5, 4], [8, 4]], "goals": [[6, 1], [1, 2], [8, 6]]}, {"name": "綱渡り", "hint": "", "par": 7, "req": 3, "cubes": [[4, 2, 3], [3, 2, 1], [4, 3, 0], [2, 2, 1]], "walls": [[8, 3], [3, 6], [3, 4], [2, 5], [6, 1], [1, 1], [1, 7], [0, 3]], "goals": [[2, 0], [6, 3], [6, 8]]}, {"name": "格子", "hint": "", "par": 7, "req": 3, "cubes": [[6, 4, 3], [5, 4, 1], [6, 5, 0], [8, 6, 1]], "walls": [[3, 0], [1, 5], [5, 1], [7, 5], [1, 4], [1, 2], [2, 5], [7, 8]], "goals": [[6, 0], [1, 6], [6, 6]]}, {"name": "大移動", "hint": "", "par": 8, "req": 3, "cubes": [[1, 1, 2], [0, 1, 1], [1, 2, 0], [2, 8, 2]], "walls": [[1, 3], [6, 5], [0, 7], [5, 3], [5, 8], [3, 2], [0, 6], [6, 7]], "goals": [[5, 0], [3, 1], [4, 8]]}, {"name": "隙間", "hint": "", "par": 8, "req": 3, "cubes": [[8, 2, 1], [0, 1, 3], [8, 3, 1], [0, 5, 3]], "walls": [[8, 7], [6, 7], [2, 6], [2, 8], [7, 0], [5, 5], [4, 1], [6, 5]], "goals": [[4, 2], [1, 5], [8, 8]]}, {"name": "最後の壁", "hint": "", "par": 8, "req": 4, "cubes": [[0, 4, 3], [7, 4, 0], [0, 3, 3], [3, 1, 0]], "walls": [[4, 8], [2, 8], [3, 0], [3, 7], [7, 3], [6, 7], [8, 8], [5, 5]], "goals": [[0, 5], [8, 5], [2, 7]]}, {"name": "ピヴィティ", "hint": "", "par": 9, "req": 4, "cubes": [[6, 4, 3], [7, 4, 3], [6, 5, 0], [0, 7, 3]], "walls": [[5, 4], [2, 4], [8, 1], [0, 4], [1, 2], [5, 1], [4, 1], [0, 1], [0, 8]], "goals": [[2, 2], [0, 6], [4, 8]]}];
+const TICK = 110;
+const $ = s => document.querySelector(s);
+const rnd = n => Math.floor(Math.random() * n);
+const ARROW = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 4.5 11h4.8v9.5h5.4V11h4.8z" fill="currentColor"/></svg>';
+const DIRNAME = ['上', '右', '下', '左'];
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+document.documentElement.style.setProperty('--tick', TICK + 'ms');
+
+/* ---------- star icons ---------- */
+const STAR_PATH = 'M12 2.4l2.9 6 6.5.8-4.8 4.5 1.2 6.5L12 17l-5.8 3.2 1.2-6.5-4.8-4.5 6.5-.8z';
+function starSVG(shine, cls = '') {
+  if (!shine) return `<svg class="star ${cls}" viewBox="-4 -4 32 32" aria-hidden="true"><path d="${STAR_PATH}" class="s-body"/></svg>`;
+  let rays = '';
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI / 4, r1 = i % 2 ? 12.5 : 12, r2 = i % 2 ? 14.5 : 16;
+    rays += `<line x1="${12 + Math.sin(a) * r1}" y1="${12 - Math.cos(a) * r1}" x2="${12 + Math.sin(a) * r2}" y2="${12 - Math.cos(a) * r2}"/>`;
+  }
+  return `<svg class="star shine ${cls}" viewBox="-4 -4 32 32" aria-hidden="true"><g class="rays">${rays}</g><path d="${STAR_PATH}" class="s-body"/><path d="M9.2 8.6l1.6-3.2" class="s-glint"/></svg>`;
+}
+
+/* ---------- storage ---------- */
+function load(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+let progress = load('pivity.progress.v2', {});
+
+/* ---------- screens ---------- */
+function show(id) {
+  for (const s of document.querySelectorAll('.screen')) s.hidden = s.id !== id;
+  window.scrollTo(0, 0);
+}
+let toastTimer;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 2000);
+}
+
+/* ---------- title intro ---------- */
+let introDone = false, introTimers = [];
+function makeFace(angle) {
+  const f = document.createElement('div'); f.className = 'face';
+  f.innerHTML = ARROW; f.style.transform = `rotate(${angle}deg)`; return f;
+}
+function playIntro() {
+  const cover = $('#cover'), logo = $('#logo');
+  if (reduceMotion) { finishIntro(); return; }
+  const cubes = [];
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 10; c++) {
+    const d = rnd(4), el = document.createElement('div');
+    el.className = 'icube'; el.style.left = c * 10 + '%'; el.style.top = r * 25 + '%';
+    el.dataset.d = d; el.style.fontSize = 'min(1.6vw,12px)';
+    const face = makeFace(d * 90); el.appendChild(face); cover.appendChild(el);
+    cubes.push({ el, face, d, angle: d * 90 });
+  }
+  const T = (f, ms) => introTimers.push(setTimeout(f, ms));
+  T(() => cubes.forEach(o => {
+    const turns = rnd(4);
+    T(() => { o.angle += turns * 90; o.d = (o.d + turns) % 4; o.face.style.transform = `rotate(${o.angle}deg)`; o.el.dataset.d = o.d; }, rnd(280));
+  }), 550);
+  T(() => {
+    logo.classList.remove('hide');
+    cubes.forEach(o => T(() => {
+      const dist = o.d % 2 ? '120vw' : '120vh', sign = (o.d === 1 || o.d === 2) ? '' : '-';
+      o.el.style.transition = `transform ${800 + rnd(300)}ms cubic-bezier(.55,0,.9,.4)`;
+      o.el.style.transform = o.d % 2 ? `translateX(${sign}${dist})` : `translateY(${sign}${dist})`;
+    }, rnd(160)));
+  }, 1300);
+  T(finishIntro, 2300);
+}
+function finishIntro() {
+  if (introDone) return; introDone = true;
+  introTimers.forEach(clearTimeout);
+  $('#logo').classList.remove('hide');
+  $('#title').classList.add('revealed');
+  setTimeout(() => { $('#cover').innerHTML = ''; }, reduceMotion ? 0 : 1300);
+}
+$('#title').addEventListener('pointerdown', e => {
+  if (introDone || e.target.closest('button')) return;
+  const cv = $('#cover'); cv.style.transition = 'opacity .25s'; cv.style.opacity = '0';
+  finishIntro(); setTimeout(() => { cv.innerHTML = ''; cv.style.opacity = ''; }, 260);
+});
+
+/* ---------- stage select ---------- */
+const GROUPS = [[0, 14, 1], [14, 29, 2], [29, 45, 3]];
+function goalSwatches(n) { return '<span class="sw"></span>'.repeat(n); }
+function renderSelect() {
+  const box = $('#stages'); box.innerHTML = '';
+  let total = 0, perfect = 0;
+  for (const [a, b, g] of GROUPS) {
+    const h = document.createElement('h3'); h.className = 'group';
+    h.innerHTML = `${goalSwatches(g)}<span>ゴール${g}つ</span><small>${a + 1}–${b}</small>`;
+    box.appendChild(h);
+    const grid = document.createElement('div'); grid.className = 'stagegrid'; box.appendChild(grid);
+    for (let i = a; i < b; i++) {
+      const lv = LEVELS[i], rec = progress[i];
+      const bt = document.createElement('button'); bt.className = 'stage';
+      let starHtml = '';
+      if (rec != null) { total++; const p = rec <= lv.par; if (p) perfect++; bt.classList.add(p ? 'perfect' : 'cleared'); starHtml = starSVG(p, 'tile-star'); }
+      bt.innerHTML = `${starHtml}<span class="num">${i + 1}</span><span class="nm"></span>`;
+      bt.querySelector('.nm').textContent = lv.name;
+      bt.setAttribute('aria-label', `ステージ${i + 1} ${lv.name}${rec != null ? (rec <= lv.par ? ' 最短クリア' : ' クリア済み') : ''}`);
+      bt.onclick = () => startStage(i);
+      grid.appendChild(bt);
+    }
+  }
+  const t = document.createElement('button'); t.className = 'stage testtile';
+  t.innerHTML = '<span class="num">テストルーム</span><span class="nm">キューブとゴールを置いて、自由に試せます</span>';
+  t.onclick = startTestRoom; box.appendChild(t);
+  $('#tally').innerHTML = `${starSVG(false, 'mini')}<span>${total}</span>${starSVG(true, 'mini')}<span>${perfect}</span><span class="of">/ ${LEVELS.length}</span>`;
+}
+
+/* ---------- board rendering ---------- */
+(function () { const c = $('#cells'); for (let i = 0; i < 81; i++) c.appendChild(document.createElement('i')); })();
+const layer = $('#layer');
+function pos(el, x, y) { el.style.transform = `translate(${x * 100}%, ${y * 100}%)`; }
+function staticPiece(cls, x, y) { const d = document.createElement('div'); d.className = 'piece ' + cls; pos(d, x, y); layer.appendChild(d); return d; }
+function cubeEl(x, y, d) {
+  const b = document.createElement('button'); b.className = 'piece cube'; b.dataset.d = d;
+  const pop = document.createElement('div'); pop.className = 'pop';
+  pop.appendChild(makeFace(d * 90)); b.appendChild(pop);
+  const guide = document.createElement('div'); guide.className = 'guide';
+  for (let k = 0; k < 4; k++) { const g = document.createElement('span'); g.className = 'g g' + k; g.dataset.d = k; g.innerHTML = ARROW; guide.appendChild(g); }
+  b.appendChild(guide);
+  pos(b, x, y); b.setAttribute('aria-label', DIRNAME[d] + '向きのキューブ（矢印キーで向きを変更）');
+  layer.appendChild(b); return b;
+}
+
+/* ---------- play ---------- */
+let mode = 'none';      // 'stage' | 'test'
+let sub = 'play';       // test room: 'edit' | 'play'
+let stageIdx = 0, state = null, views = [], goalEls = [], timer = null, moves = 0, finished = false, drag = null;
+
+function stopLoop() { clearInterval(timer); timer = null; }
+function cellPx() { return $('#board').getBoundingClientRect().width / 9; }
+function setupPlay(lv) {
+  stopLoop(); layer.innerHTML = ''; finished = false; moves = 0; drag = null;
+  state = makeState(lv);
+  goalEls = state.goals.map(g => staticPiece('goal', g[0], g[1]));
+  for (const [x, y] of lv.walls) staticPiece('wall', x, y);
+  views = state.cubes.map(c => {
+    const el = cubeEl(c.x, c.y, c.d);
+    const v = { c, el, pop: el.querySelector('.pop'), face: el.querySelector('.face'), guide: el.querySelector('.guide'), angle: c.d * 90, vd: c.d };
+    attachFlick(v);
+    return v;
+  });
+  updateCount();
+  timer = setInterval(tick, TICK);
+}
+function attachFlick(v) {
+  const el = v.el;
+  el.addEventListener('pointerdown', e => {
+    if (finished || drag) return;
+    e.preventDefault();
+    try { el.setPointerCapture(e.pointerId); } catch (_) {}
+    drag = { v, x0: e.clientX, y0: e.clientY, dir: -1, id: e.pointerId };
+    el.classList.add('dragging'); setGuide(v, -1);
+  });
+  el.addEventListener('pointermove', e => {
+    if (!drag || drag.v !== v || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+    const th = Math.max(12, cellPx() * 0.3);
+    let dir = -1;
+    if (Math.hypot(dx, dy) >= th) dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0);
+    if (dir !== drag.dir) { drag.dir = dir; setGuide(v, dir); }
+  });
+  const end = apply => e => {
+    if (!drag || drag.v !== v || e.pointerId !== drag.id) return;
+    const dir = drag.dir; drag = null; el.classList.remove('dragging'); v.guide.removeAttribute('data-sel');
+    if (apply && dir >= 0) flick(v, dir);
+  };
+  el.addEventListener('pointerup', end(true));
+  el.addEventListener('pointercancel', end(false));
+  el.addEventListener('lostpointercapture', end(true));
+  el.addEventListener('keydown', e => {
+    const k = { ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3 }[e.key];
+    if (k == null) return; e.preventDefault(); flick(v, k);
+  });
+}
+function setGuide(v, dir) {
+  v.guide.dataset.cur = targetDir(v.c);
+  if (dir >= 0) v.guide.dataset.sel = dir; else v.guide.removeAttribute('data-sel');
+}
+function targetDir(c) { return c.rot > 0 ? c.nd : c.d; }
+function turnVisual(v, t) {
+  let delta = (t - v.vd + 4) % 4; if (delta === 3) delta = -1;
+  v.angle += delta * 90; v.vd = t; v.face.style.transform = `rotate(${v.angle}deg)`;
+}
+function flick(v, dir) {
+  if (finished) return;
+  if (!flickCube(v.c, dir)) return;
+  moves++; turnVisual(v, dir); Snd.se.flick(dir);
+  v.el.dataset.d = dir;
+  v.el.setAttribute('aria-label', DIRNAME[dir] + '向きのキューブ（矢印キーで向きを変更）');
+  updateCount();
+}
+function tick() {
+  const ev = stepState(state);
+  if (ev.collided.length) Snd.se.bump();
+  let landed = false;
+  for (const v of views) { const m = ev.moved.includes(v.c); if (v.wasMoving && !m && v.c.rot === 0 && !ev.collided.includes(v.c)) landed = true; v.wasMoving = m; }
+  if (landed && !ev.collided.length) Snd.se.land();
+  for (const c of ev.collided) {
+    const v = views[c.id]; turnVisual(v, c.nd);
+    v.pop.classList.remove('bump'); void v.pop.offsetWidth; v.pop.classList.add('bump');
+  }
+  for (const v of views) { pos(v.el, v.c.x, v.c.y); v.el.dataset.d = targetDir(v.c); }
+  let newGoal = false;
+  goalEls.forEach((g, i) => {
+    const [gx, gy] = state.goals[i], f = state.cubes.some(c => c.x === gx && c.y === gy && c.rot === 0 && c.hold > 0);
+    if (f && !g.classList.contains('filled')) newGoal = true;
+    g.classList.toggle('filled', f);
+  });
+  if (ev.win) onWin(); else if (newGoal) Snd.se.goal();
+}
+function onWin() {
+  finished = true; stopLoop();
+  if (drag) { drag.v.el.classList.remove('dragging'); drag = null; }
+  goalEls.forEach(g => g.classList.add('lit'));
+  for (const v of views) if (state.goals.some(g => g[0] === v.c.x && g[1] === v.c.y)) v.el.classList.add('win');
+  if (mode === 'stage') {
+    const lv = LEVELS[stageIdx];
+    if (progress[stageIdx] == null || moves < progress[stageIdx]) { progress[stageIdx] = moves; save('pivity.progress.v2', progress); }
+    const perfect = moves <= lv.par;
+    Snd.se.clear(perfect);
+    setTimeout(() => {
+      const last = stageIdx === LEVELS.length - 1;
+      const verdict = perfect ? '最短手数でクリア！' : `最短は ${lv.par} 手です。`;
+      openOverlay(last ? '全ステージクリア' : 'ステージクリア', `${moves} 手でクリア。${verdict}`, starSVG(perfect, 'big'), [
+        !last && ['次のステージへ', 'primary', () => { closeOverlay(); startStage(stageIdx + 1); }],
+        ['もう一度', '', () => { closeOverlay(); startStage(stageIdx); }],
+        ['ステージ選択へ', '', () => { closeOverlay(); goSelect(); }]
+      ].filter(Boolean));
+    }, 650);
+  } else {
+    Snd.se.testClear();
+    toast(`テストクリア（${moves} 手）。Editに戻ります`);
+    setTimeout(() => { if (mode === 'test' && sub === 'play') setSub('edit'); }, 1500);
+  }
+}
+function updateCount() {
+  if (mode === 'stage') $('#count').innerHTML = `手数 <b>${moves}</b>/ 最短 ${LEVELS[stageIdx].par}`;
+  else if (sub === 'play') $('#count').innerHTML = `手数 <b>${moves}</b>`;
+  else $('#count').textContent = '';
+}
+
+function startStage(i) {
+  mode = 'stage'; stageIdx = i;
+  $('#modeSwitch').hidden = true; $('#playUI').hidden = false; $('#editUI').hidden = true;
+  $('#board').classList.remove('editing'); $('#board').classList.add('playing');
+  const lv = LEVELS[i];
+  $('#stName').textContent = `${i + 1}. ${lv.name}`;
+  $('#hint').textContent = lv.hint || (lv.goals.length > 1 ? `ゴール${lv.goals.length}つ すべてにキューブを止めるとクリア` : '');
+  show('game'); setupPlay(lv);
+}
+$('#restart').onclick = () => { if (mode === 'stage') startStage(stageIdx); else setupPlay(edit); };
+function goSelect() { stopLoop(); mode = 'none'; renderSelect(); show('select'); }
+$('#gameBack').onclick = goSelect;
+$('#selBack').onclick = () => show('title');
+$('#toSelect').onclick = goSelect;
+$('#toTestFromTitle').onclick = startTestRoom;
+document.addEventListener('keydown', e => {
+  if ((e.key === 'r' || e.key === 'R') && !$('#game').hidden && !e.target.closest('textarea') && $('#overlay').hidden) {
+    if (mode === 'stage') startStage(stageIdx); else if (sub === 'play') setupPlay(edit);
+  }
+});
+
+/* ---------- overlay ---------- */
+function openOverlay(title, text, icon, buttons) {
+  $('#ovIcon').innerHTML = icon || '';
+  $('#ovTitle').textContent = title; $('#ovText').textContent = text;
+  const a = $('#ovActions'); a.innerHTML = '';
+  for (const [label, cls, fn] of buttons) { const b = document.createElement('button'); b.className = 'btn ' + cls; b.textContent = label; b.onclick = fn; a.appendChild(b); }
+  $('#overlay').hidden = false; a.firstChild && a.firstChild.focus();
+}
+function closeOverlay() { $('#overlay').hidden = true; }
+
+/* ---------- test room ---------- */
+const MAX_GOALS = 3;
+const DEFAULT_TEST = { cubes: [[2, 2, 0], [6, 2, 0]], walls: [[2, 1], [6, 1]], goals: [[4, 8]] };
+let edit = load('pivity.testroom.v2', null) || JSON.parse(JSON.stringify(DEFAULT_TEST));
+let tool = 'c2';
+const TOOLS = [
+  ['c0', '上向きキューブ'], ['c1', '右向きキューブ'], ['c2', '下向きキューブ'], ['c3', '左向きキューブ'],
+  ['wall', '壁'], ['goal', `ゴール（${MAX_GOALS}つまで）`], ['erase', '消す']
+];
+(function buildPalette() {
+  const p = $('#palette');
+  for (const [id, label] of TOOLS) {
+    const b = document.createElement('button'); b.className = 'tool'; b.dataset.tool = id; b.setAttribute('aria-label', label);
+    if (id[0] === 'c') { b.dataset.d = id[1]; b.appendChild(makeFace(+id[1] * 90)); }
+    else if (id === 'wall') b.classList.add('t-wall');
+    else if (id === 'goal') b.classList.add('t-goal');
+    else { b.classList.add('t-erase'); b.textContent = '消す'; }
+    b.onclick = () => { tool = id; syncPalette(); };
+    p.appendChild(b);
+  }
+})();
+function syncPalette() {
+  for (const b of document.querySelectorAll('.tool')) b.setAttribute('aria-pressed', b.dataset.tool === tool);
+  $('#toolLabel').textContent = TOOLS.find(t => t[0] === tool)[1] + '：タップで配置、なぞると連続配置';
+}
+function renderEdit() {
+  stopLoop(); layer.innerHTML = '';
+  for (const [x, y] of edit.goals) staticPiece('goal', x, y);
+  for (const [x, y] of edit.walls) staticPiece('wall', x, y);
+  for (const [x, y, d] of edit.cubes) cubeEl(x, y, d).tabIndex = -1;
+  $('#codeText').value = encodeCode(edit);
+}
+const same = (a, x, y) => a[0] === x && a[1] === y;
+function clearCell(x, y) {
+  edit.cubes = edit.cubes.filter(c => !same(c, x, y));
+  edit.walls = edit.walls.filter(w => !same(w, x, y));
+  edit.goals = edit.goals.filter(g => !same(g, x, y));
+}
+function applyTool(x, y) {
+  if (tool === 'goal' && !edit.goals.some(g => same(g, x, y)) && edit.goals.length >= MAX_GOALS) {
+    toast(`ゴールは${MAX_GOALS}つまでです`); return;
+  }
+  clearCell(x, y);
+  if (tool[0] === 'c') edit.cubes.push([x, y, +tool[1]]);
+  else if (tool === 'wall') edit.walls.push([x, y]);
+  else if (tool === 'goal') edit.goals.push([x, y]);
+  save('pivity.testroom.v2', edit); renderEdit();
+}
+let painting = false, lastCell = -1;
+function cellFromEvent(e) {
+  const r = $('#board').getBoundingClientRect();
+  const x = Math.floor((e.clientX - r.left) / r.width * 9), y = Math.floor((e.clientY - r.top) / r.height * 9);
+  return (x < 0 || y < 0 || x > 8 || y > 8) ? null : [x, y];
+}
+$('#board').addEventListener('pointerdown', e => {
+  if (mode !== 'test' || sub !== 'edit') return;
+  const c = cellFromEvent(e); if (!c) return;
+  e.preventDefault(); painting = true; lastCell = c[1] * 9 + c[0];
+  try { $('#board').setPointerCapture(e.pointerId); } catch (_) {}
+  applyTool(c[0], c[1]);
+});
+$('#board').addEventListener('pointermove', e => {
+  if (!painting || tool === 'goal') return;
+  const c = cellFromEvent(e); if (!c) return;
+  const k = c[1] * 9 + c[0]; if (k === lastCell) return; lastCell = k; applyTool(c[0], c[1]);
+});
+['pointerup', 'pointercancel'].forEach(t => $('#board').addEventListener(t, () => painting = false));
+
+function setSub(s) {
+  sub = s;
+  $('#modeEdit').setAttribute('aria-pressed', s === 'edit'); $('#modePlay').setAttribute('aria-pressed', s === 'play');
+  $('#editUI').hidden = s !== 'edit'; $('#playUI').hidden = s !== 'play';
+  $('#board').classList.toggle('editing', s === 'edit'); $('#board').classList.toggle('playing', s === 'play');
+  if (s === 'edit') { renderEdit(); updateCount(); }
+  else { $('#hint').textContent = 'Editに戻ると配置は元どおりになります。'; setupPlay(edit); }
+}
+function tryPlay() {
+  if (!edit.goals.length) return toast('ゴールを1つ以上置いてください');
+  if (edit.cubes.length < edit.goals.length) return toast('キューブをゴールの数以上置いてください');
+  setSub('play');
+}
+function startTestRoom() {
+  mode = 'test';
+  $('#modeSwitch').hidden = false;
+  $('#stName').textContent = 'テストルーム';
+  show('game'); syncPalette(); setSub('edit');
+}
+$('#modeEdit').onclick = () => setSub('edit');
+$('#modePlay').onclick = tryPlay;
+$('#playBtn').onclick = tryPlay;
+$('#clearAll').onclick = () => { edit = { cubes: [], walls: [], goals: [] }; save('pivity.testroom.v2', edit); renderEdit(); };
+
+/* stage code: 81 chars, row by row.  . empty  # wall  G goal  ^ > v < cubes */
+function encodeCode(lv) {
+  const g = Array(81).fill('.');
+  for (const [x, y] of lv.walls) g[y * 9 + x] = '#';
+  for (const [x, y] of lv.goals) g[y * 9 + x] = 'G';
+  for (const [x, y, d] of lv.cubes) g[y * 9 + x] = '^>v<'[d];
+  let s = 'PIVITY:'; for (let r = 0; r < 9; r++) s += g.slice(r * 9, r * 9 + 9).join('') + (r < 8 ? '/' : '');
+  return s;
+}
+function decodeCode(str) {
+  const body = str.trim().replace(/^PIVITY:/i, '').replace(/[\/\s]/g, '');
+  if (body.length !== 81 || /[^.#G^>v<]/.test(body)) return null;
+  const lv = { cubes: [], walls: [], goals: [] };
+  for (let i = 0; i < 81; i++) {
+    const ch = body[i], x = i % 9, y = (i / 9) | 0;
+    if (ch === '#') lv.walls.push([x, y]);
+    else if (ch === 'G') lv.goals.push([x, y]);
+    else if (ch !== '.') lv.cubes.push([x, y, '^>v<'.indexOf(ch)]);
+  }
+  return lv.goals.length > MAX_GOALS ? null : lv;
+}
+$('#copyCode').onclick = async () => {
+  const t = $('#codeText');
+  try { await navigator.clipboard.writeText(t.value); toast('コードをコピーしました'); }
+  catch (e) { t.select(); toast('選択しました。手動でコピーしてください'); }
+};
+$('#loadCode').onclick = () => {
+  const lv = decodeCode($('#codeText').value);
+  if (!lv) return toast(`コードの形式が違います（81マス分・ゴールは${MAX_GOALS}つまで）`);
+  edit = lv; save('pivity.testroom.v2', edit); renderEdit(); toast('読み込みました');
+};
+
+/* ---------- sound (Web Audio, no external files) ---------- */
+const Snd = (() => {
+  const st = load('pivity.sound', { bgm: true, se: true });
+  let ctx = null, master, bgmBus, seBus, noiseBuf, delay;
+  const BGM_VOL = 0.2, SE_VOL = 0.6;
+  const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+
+  function init() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    ctx = new AC();
+    master = ctx.createGain(); master.gain.value = 0.8;
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4;
+    master.connect(comp); comp.connect(ctx.destination);
+    bgmBus = ctx.createGain(); bgmBus.gain.value = st.bgm ? BGM_VOL : 0; bgmBus.connect(master);
+    seBus = ctx.createGain(); seBus.gain.value = st.se ? SE_VOL : 0; seBus.connect(master);
+    // soft echo for the BGM
+    delay = ctx.createDelay(); delay.delayTime.value = 60 / BPM * 0.75;
+    const fb = ctx.createGain(); fb.gain.value = 0.28; const wet = ctx.createGain(); wet.gain.value = 0.3;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2200;
+    delay.connect(lp); lp.connect(fb); fb.connect(delay); lp.connect(wet); wet.connect(bgmBus);
+    noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 0.5, ctx.sampleRate);
+    const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    if (st.bgm) startBGM();
+  }
+  function tone(f, t, dur, o = {}) {
+    if (!ctx) return;
+    const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = o.type || 'sine';
+    osc.frequency.setValueAtTime(o.from || f, t);
+    if (o.from) osc.frequency.exponentialRampToValueAtTime(f, t + (o.glide || 0.06));
+    const v = o.vol == null ? 0.2 : o.vol, a = o.attack || 0.004;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(v, t + a);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    let node = osc;
+    if (o.lp) { const f2 = ctx.createBiquadFilter(); f2.type = 'lowpass'; f2.frequency.value = o.lp; osc.connect(f2); node = f2; }
+    node.connect(g); g.connect(o.dest || seBus); if (o.send) g.connect(delay);
+    osc.start(t); osc.stop(t + dur + 0.05);
+  }
+  function noise(t, dur, o = {}) {
+    if (!ctx) return;
+    const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    s.buffer = noiseBuf; f.type = o.type || 'bandpass'; f.frequency.value = o.freq || 1200; f.Q.value = o.q || 1;
+    g.gain.setValueAtTime(o.vol || 0.1, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(o.dest || seBus); s.start(t); s.stop(t + dur + 0.02);
+  }
+  const now = () => ctx ? ctx.currentTime + 0.005 : 0;
+  function bell(f, t, dur, vol) { tone(f, t, dur, { vol }); tone(f * 2.005, t, dur * 0.5, { vol: vol * 0.3 }); }
+
+  /* ----- sound effects (pitches from D major pentatonic) ----- */
+  const FLICK = [81, 78, 74, 76]; // ↑A5 →F#5 ↓D5 ←E5
+  const se = {
+    ui() { const t = now(); tone(1320, t, 0.05, { vol: 0.06 }); },
+    flick(d) { const t = now(), f = mtof(FLICK[d]); tone(f, t, 0.14, { from: f * 0.7, glide: 0.05, vol: 0.2 }); tone(f * 2, t + 0.02, 0.08, { vol: 0.05 }); noise(t, 0.06, { freq: 3000, q: 0.8, vol: 0.04 }); },
+    bump() { const t = now(); tone(110, t, 0.18, { type: 'triangle', from: 240, glide: 0.1, vol: 0.35 }); noise(t, 0.08, { type: 'lowpass', freq: 900, vol: 0.18 }); },
+    land() { const t = now(); tone(196, t, 0.07, { type: 'triangle', from: 300, glide: 0.03, vol: 0.12 }); },
+    goal() { const t = now(); bell(mtof(86), t, 0.5, 0.12); bell(mtof(93), t + 0.08, 0.7, 0.12); },
+    clear(perfect) {
+      const t = now(); duck();
+      [74, 78, 81, 86, 90].forEach((m, i) => bell(mtof(m), t + i * 0.07, 1.1, 0.14));
+      [62, 66, 69, 73].forEach(m => tone(mtof(m), t + 0.38, 1.6, { type: 'triangle', vol: 0.06, attack: 0.02, lp: 2400 }));
+      if (perfect) [98, 102, 105].forEach((m, i) => bell(mtof(m), t + 0.5 + i * 0.09, 0.8, 0.07));
+    },
+    testClear() { const t = now(); duck(); [74, 78, 81, 86].forEach((m, i) => bell(mtof(m), t + i * 0.06, 0.8, 0.12)); }
+  };
+  function duck() {
+    if (!ctx || !st.bgm) return; const t = ctx.currentTime, g = bgmBus.gain;
+    g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(BGM_VOL * 0.25, t + 0.1);
+    g.linearRampToValueAtTime(BGM_VOL, t + 2.6);
+  }
+
+  /* ----- BGM: 8-bar loop in D major, 84 BPM -----
+     | Gmaj7 | A6 | F#m7 | Bm7 | Em7 | A7sus4 A7 | Dmaj7 | D6 |
+     (IVmaj7 - V - iiim7 - vim7 : ii7 - V7 - Imaj7) */
+  var BPM = 84;
+  const BARS = [
+    { b: 43, c: [55, 59, 62, 66] },  // Gmaj7
+    { b: 45, c: [57, 61, 64, 66] },  // A6
+    { b: 42, c: [54, 57, 61, 64] },  // F#m7
+    { b: 47, c: [54, 57, 59, 62] },  // Bm7
+    { b: 40, c: [52, 55, 59, 62] },  // Em7
+    { b: 45, c: [57, 62, 64, 67], c2: [57, 61, 64, 67] }, // A7sus4 -> A7
+    { b: 38, c: [57, 61, 62, 66] },  // Dmaj7
+    { b: 38, c: [57, 59, 62, 66] }   // D6
+  ];
+  const ARP = [0, 1, 2, 3, 2, 1, 3, 2];          // 8th-note arpeggio shape
+  const ARP_ON = [1, 0, 1, 1, 0, 1, 1, 0];       // gentle rests
+  let playing = false, step = 0, nextT = 0, timerId = null;
+  function startBGM() {
+    if (!ctx || playing) return;
+    playing = true; step = 0; nextT = ctx.currentTime + 0.12;
+    timerId = setInterval(schedule, 40);
+  }
+  function stopBGM() { playing = false; clearInterval(timerId); }
+  function schedule() {
+    const e = 60 / BPM / 2; // 8th note
+    while (nextT < ctx.currentTime + 0.25) {
+      const bar = BARS[(step >> 3) % 8], i = step & 7, t = nextT;
+      const chord = (bar.c2 && i >= 4) ? bar.c2 : bar.c;
+      if (i === 0 || (bar.c2 && i === 4)) chord.forEach(m => tone(mtof(m), t, e * (bar.c2 ? 4 : 8) + 0.4, { type: 'triangle', vol: 0.045, attack: 0.25, lp: 1400, dest: bgmBus }));
+      if (i === 0 || i === 4) tone(mtof(bar.b), t, e * 3.2, { type: 'sine', vol: 0.26, attack: 0.01, dest: bgmBus });
+      if (i === 7) tone(mtof(bar.b + 7), t, e * 0.9, { type: 'sine', vol: 0.12, dest: bgmBus });
+      if (ARP_ON[i]) tone(mtof(chord[ARP[i]] + 12), t, 0.32, { vol: 0.07, dest: bgmBus, send: true });
+      if (i % 2 === 1) noise(t, 0.035, { type: 'highpass', freq: 7000, vol: 0.025, dest: bgmBus });
+      nextT += e; step = (step + 1) % 64;
+    }
+  }
+  function set(kind, on) {
+    st[kind] = on; save('pivity.sound', st);
+    if (!ctx) return;
+    const bus = kind === 'bgm' ? bgmBus : seBus, t = ctx.currentTime;
+    bus.gain.cancelScheduledValues(t); bus.gain.setTargetAtTime(on ? (kind === 'bgm' ? BGM_VOL : SE_VOL) : 0, t, 0.08);
+    if (kind === 'bgm') { if (on) startBGM(); else setTimeout(() => { if (!st.bgm) stopBGM(); }, 400); }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (!ctx) return;
+    if (document.hidden) ctx.suspend(); else ctx.resume();
+  });
+  return { init, se, set, st };
+})();
+
+/* sound toggles + unlock on first gesture */
+function syncSoundUI() {
+  $('#sndBgm').setAttribute('aria-pressed', Snd.st.bgm);
+  $('#sndSe').setAttribute('aria-pressed', Snd.st.se);
+}
+$('#sndBgm').onclick = () => { Snd.init(); Snd.set('bgm', !Snd.st.bgm); syncSoundUI(); };
+$('#sndSe').onclick = () => { Snd.init(); Snd.set('se', !Snd.st.se); syncSoundUI(); if (Snd.st.se) Snd.se.ui(); };
+syncSoundUI();
+document.addEventListener('pointerdown', e => {
+  Snd.init();
+  if (e.target.closest('.btn, .stage, .iconbtn, .tool, .mode button, summary')) Snd.se.ui();
+}, true);
+document.addEventListener('keydown', () => Snd.init(), true);
+
+/* ---------- logo fit ---------- */
+function fitLogo() {
+  const w = document.querySelector('.logo-wrap'), l = $('#logo');
+  if (!w || !w.clientWidth) return;
+  l.style.fontSize = '100px';
+  const s = Math.min(w.clientWidth * 0.9 / l.scrollWidth, w.clientHeight * 0.8 / l.offsetHeight);
+  l.style.fontSize = (100 * s).toFixed(1) + 'px';
+}
+fitLogo();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitLogo);
+addEventListener('resize', fitLogo);
+
+/* ---------- boot ---------- */
+renderSelect();
+playIntro();
+
+</script>
+</body>
+</html>
