@@ -145,6 +145,7 @@ button{font:inherit;color:inherit}
 .goal.lit::before{background:var(--goal);box-shadow:0 0 22px var(--goal)}
 .board.playing{touch-action:none}
 .cube.dragging{z-index:20}
+.board.busy .cube{cursor:default}
 .guide{position:absolute;inset:-100%;pointer-events:none;display:none}
 .cube.dragging .guide{display:block}
 .guide .g{position:absolute;width:33.34%;height:33.34%;display:grid;place-items:center;opacity:.35;transition:opacity .1s,transform .1s}
@@ -500,7 +501,7 @@ function attachFlick(v) {
   const el = v.el;
   el.addEventListener('pointerdown', e => {
     if (finished || drag) return;
-    if (isMoving(v)) { e.preventDefault(); return; }
+    if (anyMoving()) { e.preventDefault(); return; }
     e.preventDefault();
     try { el.setPointerCapture(e.pointerId); } catch (_) {}
     drag = { v, x0: e.clientX, y0: e.clientY, dir: -1, id: e.pointerId };
@@ -544,8 +545,9 @@ function isMoving(v) {
   if (nx < 0 || ny < 0 || nx >= N || ny >= N || state.walls.has(ny * N + nx)) return false;
   return !state.cubes.some(o => o.x === nx && o.y === ny);
 }
+function anyMoving() { return views.some(isMoving); }
 function flick(v, dir) {
-  if (finished || isMoving(v)) return;
+  if (finished || anyMoving()) return;
   if (!flickCube(v.c, dir)) return;
   moves++; turnVisual(v, dir); Snd.se.flick(dir);
   v.el.dataset.d = dir;
@@ -569,6 +571,7 @@ function tick() {
     if (f && !g.classList.contains('filled')) newGoal = true;
     g.classList.toggle('filled', f);
   });
+  $('#board').classList.toggle('busy', anyMoving());
   if (ev.win) onWin(); else if (newGoal) Snd.se.goal();
 }
 function onWin() {
