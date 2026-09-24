@@ -500,6 +500,7 @@ function attachFlick(v) {
   const el = v.el;
   el.addEventListener('pointerdown', e => {
     if (finished || drag) return;
+    if (isMoving(v)) { e.preventDefault(); return; }
     e.preventDefault();
     try { el.setPointerCapture(e.pointerId); } catch (_) {}
     drag = { v, x0: e.clientX, y0: e.clientY, dir: -1, id: e.pointerId };
@@ -535,8 +536,16 @@ function turnVisual(v, t) {
   let delta = (t - v.vd + 4) % 4; if (delta === 3) delta = -1;
   v.angle += delta * 90; v.vd = t; v.face.style.transform = `rotate(${v.angle}deg)`;
 }
+function isMoving(v) {
+  const c = v.c;
+  if (v.wasMoving) return true;
+  if (c.rot > 0) return false;
+  const nx = c.x + DX[c.d], ny = c.y + DY[c.d];
+  if (nx < 0 || ny < 0 || nx >= N || ny >= N || state.walls.has(ny * N + nx)) return false;
+  return !state.cubes.some(o => o.x === nx && o.y === ny);
+}
 function flick(v, dir) {
-  if (finished) return;
+  if (finished || isMoving(v)) return;
   if (!flickCube(v.c, dir)) return;
   moves++; turnVisual(v, dir); Snd.se.flick(dir);
   v.el.dataset.d = dir;
