@@ -65,14 +65,26 @@ button{font:inherit;color:inherit}
 #title.revealed .skip{display:none}
 
 /* ---------- cube (shared) ---------- */
-.face{position:absolute;inset:7%;border-radius:24%;display:grid;place-items:center;background:var(--cube);
-  box-shadow:inset 0 -.2em 0 rgba(0,0,0,.14), 0 .12em .3em rgba(0,0,0,.18);
+.face{position:absolute;inset:6%;border-radius:24%;display:grid;place-items:center;background:var(--cube);
+  box-shadow:inset 0 0 0 .08em rgba(0,0,0,.08), 0 0 .3em rgba(0,0,0,.16);
   transition:transform calc(var(--tick) * 3) cubic-bezier(.3,1.4,.5,1), color .3s}
 .face svg{width:58%;height:58%;display:block}
 [data-d="0"]>.pop>.face,[data-d="0"]>.face{color:var(--up)}
 [data-d="1"]>.pop>.face,[data-d="1"]>.face{color:var(--right)}
 [data-d="2"]>.pop>.face,[data-d="2"]>.face{color:var(--down)}
 [data-d="3"]>.pop>.face,[data-d="3"]>.face{color:var(--left)}
+
+.face.round{border-radius:38%}
+.face .orbit{position:absolute;inset:-2%;width:104%;height:104%;overflow:visible;animation:orbit 1.8s linear infinite}
+.face .orbit .track{fill:none;stroke:currentColor;stroke-width:3;opacity:.28}
+.face .orbit .trail{fill:none;stroke:currentColor;stroke-width:6;stroke-linecap:round}
+.face .orbit .tip{fill:currentColor}
+@keyframes orbit{to{transform:rotate(360deg)}}
+.ccw .face .orbit{animation-direction:reverse}
+.ccw .face .orbit .ring{transform:scaleX(-1);transform-box:view-box;transform-origin:50% 50%}
+.cube .pop.flip{animation:flip .35s ease}
+@keyframes flip{40%{transform:scaleX(-.85)}}
+.rsw{width:16px;height:16px;border-radius:38%;background:var(--cube);position:relative;box-shadow:inset 0 0 0 2px var(--right)}
 
 /* ---------- select ---------- */
 .topbar{width:min(100%,600px);display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px}
@@ -85,6 +97,14 @@ button{font:inherit;color:inherit}
 .sndbtn[aria-pressed="false"]{opacity:.55}
 .sndbtn[aria-pressed="false"] .x{display:inline}
 .sndbtn[aria-pressed="false"] .w{display:none}
+.settings{position:absolute;top:calc(100% + 8px);right:0;width:min(280px,calc(100vw - 24px));background:var(--panel);color:var(--ink);border-radius:14px;padding:12px 14px 14px;box-shadow:0 12px 32px rgba(0,0,0,.25)}
+.settings[hidden]{display:none}
+.set-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.set-head .iconbtn{padding:2px 8px;font-size:20px;line-height:1}
+.set-row{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;font-weight:700;margin-bottom:6px}
+.set-row output{font-family:var(--display);font-weight:400;font-size:18px}
+#speedRange{width:100%;accent-color:var(--goal)}
+.set-scale{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-top:2px}
 .rules{width:min(100%,600px);margin:10px 0 18px;padding:14px 16px;border-radius:14px;background:var(--panel);font-size:14px;line-height:1.75;color:var(--sub)}
 .rules p{margin:0}
 .stages{width:min(100%,600px)}
@@ -125,11 +145,11 @@ button{font:inherit;color:inherit}
 .hud .count b{font-family:var(--display);font-weight:400;font-size:24px;color:var(--ink);margin-right:2px}
 .board{position:relative;width:min(94vw,58vh,560px);aspect-ratio:1;background:var(--board);border-radius:14px;
   padding:0;touch-action:manipulation;user-select:none;-webkit-user-select:none;box-shadow:0 0 0 6px var(--board)}
-.cells{position:absolute;inset:0;display:grid;grid-template-columns:repeat(9,1fr);grid-template-rows:repeat(9,1fr)}
-.cells i{border-radius:12%;margin:3%;background:var(--cell)}
+.cells{position:absolute;inset:0}
+.cells i::before{content:"";position:absolute;inset:3%;border-radius:12%;background:var(--cell)}
 .layer{position:absolute;inset:0}
 .piece{position:absolute;left:0;top:0;width:calc(100% / 9);height:calc(100% / 9)}
-.cube{border:0;padding:0;background:none;cursor:pointer;font-size:clamp(9px,2.6vw,15px);transition:transform var(--tick) linear;z-index:3}
+.cube{-webkit-appearance:none;appearance:none;border:0;padding:0;margin:0;line-height:0;background:none;cursor:pointer;font-size:clamp(9px,2.6vw,15px);transition:transform var(--tick) linear;z-index:3}
 .cube .pop{position:absolute;inset:0}
 .cube .pop.bump{animation:bump .33s ease}
 @keyframes bump{30%{transform:scale(.8)}70%{transform:scale(1.08)}}
@@ -137,7 +157,7 @@ button{font:inherit;color:inherit}
 @keyframes winpulse{50%{transform:scale(1.12)}}
 .wall{z-index:1}
 .wall::before{content:"";position:absolute;inset:3%;border-radius:14%;background:var(--wall);
-  box-shadow:inset 0 3px 0 var(--wall-hi)}
+  box-shadow:inset 0 0 0 2px var(--wall-hi)}
 .goal{z-index:0}
 .goal::before{content:"";position:absolute;inset:5%;border-radius:12%;border:3px dashed var(--goal);
   background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--goal) 55%,transparent) 0 3px,transparent 3px 8px)}
@@ -145,6 +165,13 @@ button{font:inherit;color:inherit}
 .goal.lit::before{background:var(--goal);box-shadow:0 0 22px var(--goal)}
 .board.playing{touch-action:none}
 .cube.dragging{z-index:20}
+.fx{z-index:5;pointer-events:none}
+.fx svg{position:absolute;left:-40%;top:-40%;width:180%;height:180%;overflow:visible;animation:fxspin .75s cubic-bezier(.2,.7,.3,1) forwards}
+.fx .arcs path{fill:none;stroke:currentColor;stroke-width:6.5;stroke-linecap:round;stroke-linejoin:round}
+.fx .dots{fill:currentColor;animation:fxdots .75s ease-out forwards;transform-origin:50px 50px}
+.fx[data-d="0"]{color:var(--up)}.fx[data-d="1"]{color:var(--right)}.fx[data-d="2"]{color:var(--down)}.fx[data-d="3"]{color:var(--left)}
+@keyframes fxspin{0%{transform:rotate(-80deg) scale(.55);opacity:0}25%{opacity:1}100%{transform:rotate(190deg) scale(1.08);opacity:0}}
+@keyframes fxdots{0%{transform:rotate(0) scale(.7)}100%{transform:rotate(120deg) scale(1.25)}}
 .board.busy .cube{cursor:default}
 .guide{position:absolute;inset:-100%;pointer-events:none;display:none}
 .cube.dragging .guide{display:block}
@@ -205,7 +232,7 @@ button{font:inherit;color:inherit}
 @media (prefers-reduced-motion:reduce){
   .cube{transition:none}
   .face{transition:none}
-  .cube .pop.bump,.cube.win .pop,.card,.star.shine .rays{animation:none}
+  .cube .pop.bump,.cube .pop.flip,.cube.win .pop,.card,.star.shine .rays,.face .orbit{animation:none}
 }
 </style>
 </head>
@@ -213,6 +240,13 @@ button{font:inherit;color:inherit}
 <div class="sound" role="group" aria-label="サウンド">
   <button class="sndbtn" id="sndBgm" aria-label="BGM" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 17.5V6l10-2v11.5"/><circle cx="6.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="15.5" r="2.5"/><line class="x" x1="3" y1="3" x2="21" y2="21"/></svg><span>BGM</span></button>
   <button class="sndbtn" id="sndSe" aria-label="効果音" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h4l5-4v13l-5-4H4z"/><path class="w" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/><line class="x" x1="3" y1="3" x2="21" y2="21"/></svg><span>SE</span></button>
+  <button class="sndbtn" id="setBtn" aria-label="設定" aria-expanded="false" aria-controls="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg><span>設定</span></button>
+  <div class="settings" id="settings" hidden role="dialog" aria-label="設定">
+    <div class="set-head"><b>設定</b><button class="iconbtn" id="setClose" aria-label="閉じる">×</button></div>
+    <label class="set-row" for="speedRange"><span>キューブの移動速度</span><output id="speedVal">1.0倍</output></label>
+    <input type="range" id="speedRange" min="1" max="10" step="1" value="10">
+    <div class="set-scale"><span>0.1倍（遅い）</span><span>1.0倍</span></div>
+  </div>
 </div>
 <section class="screen" id="title">
   <div class="logo-wrap">
@@ -236,7 +270,7 @@ button{font:inherit;color:inherit}
     <span class="spacer"></span>
   </div>
   <div class="rules">
-    <p>キューブは矢印の方向へ、ぶつかるまで進みます。キューブをフリック（PCはドラッグ）すると、その方向へ向きが変わります。2つのキューブが同じマスを狙うと、手前で止まって時計回りに1回転。黄色いゴールすべてにキューブを止めればクリアです。</p>
+    <p>キューブは矢印の方向へ、ぶつかるまで進みます。キューブをフリック（PCはドラッグ）すると、その方向へ向きが変わります。2つのキューブが同じマスを狙うと、手前で止まって時計回りに1回転。縁を矢印が回るラウンドキューブは、1マス進むたびに向きが90°ずつ変わります。タップすると回る向き（時計回り／反時計回り）が逆になります（手数には数えません）。黄色いゴールすべてにキューブを止めればクリアです。</p>
   </div>
   <div class="tally" id="tally"></div>
   <div class="stages" id="stages"></div>
@@ -300,14 +334,14 @@ const ROT_TICKS = 3;
 const GOAL_HOLD = 12;
 function makeState(lv) {
   return {
-    cubes: lv.cubes.map((c, i) => ({ id: i, x: c[0], y: c[1], d: c[2], nd: c[2], rot: 0, hold: 0 })),
+    cubes: lv.cubes.map((c, i) => ({ id: i, x: c[0], y: c[1], d: c[2], nd: c[2], rot: 0, hold: 0, round: !!c[3], spin: c[3] === 2 ? 3 : 1, run: 0, park: false, hx: 0, hy: 0 })),
     walls: new Set(lv.walls.map(w => w[1] * N + w[0])),
     goals: (lv.goals || []).map(g => g.slice()),
     tick: 0
   };
 }
 function stepState(s) {
-  const ev = { moved: [], collided: [], rotDone: [] };
+  const ev = { moved: [], collided: [], rotDone: [], turned: [], parked: [] };
   for (const c of s.cubes) {
     if (c.rot > 0 && --c.rot === 0) { c.d = c.nd; ev.rotDone.push(c); }
   }
@@ -315,7 +349,7 @@ function stepState(s) {
   for (const c of s.cubes) occ.add(c.y * N + c.x);
   const want = new Map();
   for (const c of s.cubes) {
-    if (c.rot > 0) continue;
+    if (c.rot > 0 || c.park) continue;
     const nx = c.x + DX[c.d], ny = c.y + DY[c.d];
     if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
     const k = ny * N + nx;
@@ -325,14 +359,24 @@ function stepState(s) {
   }
   const movedSet = new Set();
   for (const [k, arr] of want) {
-    if (arr.length === 1) { const c = arr[0]; c.x = k % N; c.y = (k / N) | 0; ev.moved.push(c); movedSet.add(c); }
+    if (arr.length === 1) {
+      const c = arr[0];
+      if (c.round && c.run === 0) { c.hx = c.x; c.hy = c.y; }          // round: remember where this run started
+      c.x = k % N; c.y = (k / N) | 0; ev.moved.push(c); movedSet.add(c);
+      if (c.round) {
+        c.d = c.nd = (c.d + c.spin) % 4; ev.turned.push(c);               // round: turn after every step (spin 1 = clockwise, 3 = counter-clockwise)
+        if (c.x === c.hx && c.y === c.hy) { c.park = true; ev.parked.push(c); }   // back where it started: stop instead of looping
+      }
+    }
     else if (!s.noRot) for (const c of arr) { c.rot = ROT_TICKS; c.nd = (c.d + 1) % 4; ev.collided.push(c); }
   }
   s.tick++;
   const stable = ev.moved.length === 0 && ev.collided.length === 0 && s.cubes.every(c => c.rot === 0);
   for (const c of s.cubes) {
     if (c.rot === 0 && !movedSet.has(c)) c.hold++; else c.hold = 0;
+    c.run = movedSet.has(c) ? c.run + 1 : 0;   // 4 straight steps = a round cube circling in place
   }
+  ev.orbit = s.cubes.some(c => c.round && c.run >= 4 && !c.park);
   let win = s.goals.length > 0;
   for (const g of s.goals) {
     const c = s.cubes.find(c => c.x === g[0] && c.y === g[1]);
@@ -345,18 +389,21 @@ function stepState(s) {
 function flickCube(c, d) {
   if (c.rot > 0) { if (c.nd === d) return false; c.nd = d; return true; }
   if (c.d === d) return false;
-  c.nd = d; c.rot = ROT_TICKS; return true;
+  c.nd = d; c.rot = ROT_TICKS; c.park = false; return true;
 }
-if (typeof module !== 'undefined') module.exports = { N, DX, DY, ROT_TICKS, makeState, stepState, flickCube };
+// round cubes: flip the turning direction (free action, not a move)
+function toggleSpin(c) { if (!c.round) return false; c.spin = c.spin === 1 ? 3 : 1; return true; }
+if (typeof module !== 'undefined') module.exports = { N, DX, DY, ROT_TICKS, makeState, stepState, flickCube, toggleSpin };
 
-const LEVELS = [{"name": "はじめの一手", "hint": "キューブをフリック（PCはドラッグ）すると、その方向へ向きが変わります。", "par": 1, "req": 1, "cubes": [[8, 4, 1]], "walls": [], "goals": [[8, 8]]}, {"name": "曲がり角", "hint": "向きが変わり終わると、すぐに矢印の方向へ進みます。", "par": 2, "req": 1, "cubes": [[0, 0, 0]], "walls": [[5, 0]], "goals": [[4, 8]]}, {"name": "寄り道", "hint": "2つのキューブが同じマスを狙うと、手前で止まって時計回りに1回転します。", "par": 2, "req": 2, "cubes": [[7, 6, 1], [7, 5, 2], [8, 6, 3]], "walls": [[7, 3], [8, 4], [3, 7]], "goals": [[1, 5]]}, {"name": "通せんぼ", "hint": "壁やほかのキューブにぶつかると止まります。", "par": 2, "req": 1, "cubes": [[2, 8, 2], [1, 4, 2], [0, 2, 3]], "walls": [[1, 5], [1, 0], [0, 4], [4, 5], [3, 3]], "goals": [[0, 5]]}, {"name": "すれ違い", "hint": "", "par": 2, "req": 1, "cubes": [[1, 8, 2], [0, 5, 3], [8, 1, 1]], "walls": [[4, 8], [3, 3], [0, 6], [5, 7], [7, 4], [7, 6]], "goals": [[3, 4]]}, {"name": "段差", "hint": "", "par": 2, "req": 1, "cubes": [[3, 8, 2], [0, 6, 3], [8, 7, 1]], "walls": [[5, 3], [1, 3], [6, 4], [7, 5], [3, 2], [1, 1]], "goals": [[4, 3]]}, {"name": "抜け道", "hint": "", "par": 3, "req": 2, "cubes": [[4, 0, 0], [0, 5, 3], [1, 8, 2]], "walls": [[2, 4], [0, 6], [0, 8], [3, 7], [4, 7], [4, 8]], "goals": [[8, 4]]}, {"name": "行き止まり", "hint": "", "par": 3, "req": 2, "cubes": [[8, 4, 1], [0, 2, 3], [7, 0, 0], [8, 3, 1]], "walls": [[2, 8], [2, 3], [6, 5], [0, 6], [8, 1], [0, 7]], "goals": [[1, 7]]}, {"name": "迂回路", "hint": "", "par": 3, "req": 2, "cubes": [[0, 3, 3], [5, 8, 2], [6, 8, 2], [4, 2, 0]], "walls": [[5, 2], [8, 6], [3, 6], [8, 4], [7, 5], [4, 1], [8, 1]], "goals": [[5, 0]]}, {"name": "回り道", "hint": "", "par": 4, "req": 2, "cubes": [[2, 0, 0], [8, 8, 1], [8, 3, 1], [8, 4, 1]], "walls": [[7, 4], [7, 0], [5, 0], [5, 2], [4, 8], [5, 3]], "goals": [[5, 7]]}, {"name": "右の塔", "hint": "", "par": 4, "req": 2, "cubes": [[7, 3, 0], [7, 2, 2], [6, 3, 1], [3, 2, 2]], "walls": [[6, 7], [6, 6], [1, 3], [5, 1], [3, 3], [7, 6], [7, 8]], "goals": [[8, 6]]}, {"name": "落とし穴", "hint": "", "par": 6, "req": 2, "cubes": [[3, 4, 3], [3, 3, 2], [2, 4, 1], [2, 7, 2]], "walls": [[2, 8], [4, 3], [8, 1], [3, 2], [1, 7], [5, 3], [7, 4]], "goals": [[7, 6]]}, {"name": "見張り", "hint": "", "par": 7, "req": 3, "cubes": [[3, 7, 2], [2, 7, 1], [3, 8, 0], [0, 5, 3]], "walls": [[6, 4], [0, 0], [6, 8], [1, 3], [5, 0], [3, 4], [2, 2]], "goals": [[5, 4]]}, {"name": "長い坂", "hint": "", "par": 8, "req": 3, "cubes": [[7, 5, 0], [7, 4, 2], [6, 5, 1], [3, 0, 0]], "walls": [[7, 6], [6, 3], [8, 4], [1, 3], [8, 3], [4, 1], [6, 1]], "goals": [[5, 6]]}, {"name": "ふたつの印", "hint": "ゴールが2つ。すべてのゴールにキューブを止めるとクリアです。", "par": 3, "req": 3, "cubes": [[1, 7, 3], [0, 4, 3], [0, 5, 2]], "walls": [[0, 6], [3, 0], [5, 6], [0, 7], [4, 1], [8, 6]], "goals": [[1, 0], [0, 1]]}, {"name": "並走", "hint": "", "par": 4, "req": 2, "cubes": [[4, 8, 3], [3, 8, 1], [3, 0, 0], [8, 6, 1], [1, 3, 3]], "walls": [[6, 2], [5, 5], [1, 7], [6, 6], [1, 6], [3, 4], [0, 3]], "goals": [[1, 2], [8, 8]]}, {"name": "待ち合わせ", "hint": "", "par": 4, "req": 2, "cubes": [[5, 4, 2], [2, 6, 2], [6, 8, 2], [2, 5, 2], [4, 0, 0]], "walls": [[0, 0], [6, 1], [7, 4], [3, 1], [3, 7], [5, 5], [2, 7], [4, 3]], "goals": [[1, 0], [2, 4]]}, {"name": "交差点", "hint": "", "par": 4, "req": 3, "cubes": [[0, 0, 0], [8, 2, 1], [1, 0, 0], [8, 4, 1]], "walls": [[0, 7], [1, 7], [1, 6], [7, 1], [5, 1], [5, 5], [0, 4]], "goals": [[7, 0], [6, 8]]}, {"name": "二重扉", "hint": "", "par": 5, "req": 2, "cubes": [[6, 0, 0], [8, 2, 1], [3, 3, 3], [7, 6, 1], [0, 1, 3]], "walls": [[8, 6], [0, 5], [4, 2], [7, 5], [1, 6], [2, 3], [0, 6]], "goals": [[1, 1], [5, 8]]}, {"name": "向かい風", "hint": "", "par": 5, "req": 2, "cubes": [[8, 6, 0], [6, 8, 2], [5, 8, 1], [0, 0, 3], [4, 6, 2]], "walls": [[5, 3], [3, 0], [5, 7], [4, 7], [8, 5], [8, 2], [7, 3], [1, 5]], "goals": [[2, 5], [7, 8]]}, {"name": "挟み撃ち", "hint": "", "par": 5, "req": 2, "cubes": [[5, 6, 3], [0, 3, 3], [3, 6, 1], [4, 1, 0], [0, 4, 3]], "walls": [[4, 0], [2, 8], [5, 2], [7, 1], [2, 2], [5, 8], [4, 6]], "goals": [[8, 0], [7, 2]]}, {"name": "積み木", "hint": "", "par": 5, "req": 3, "cubes": [[0, 5, 3], [2, 2, 0], [4, 3, 2], [3, 1, 3], [1, 1, 2], [5, 2, 3]], "walls": [[4, 4], [4, 2], [5, 8], [5, 3], [1, 2], [0, 6], [2, 1], [4, 5]], "goals": [[0, 0], [8, 3]]}, {"name": "遠回り", "hint": "", "par": 6, "req": 2, "cubes": [[1, 3, 2], [7, 0, 0], [6, 6, 2], [4, 0, 0], [2, 5, 0]], "walls": [[2, 4], [8, 0], [2, 7], [5, 0], [1, 4], [6, 7], [0, 8], [8, 8]], "goals": [[3, 5], [3, 8]]}, {"name": "階段", "hint": "", "par": 6, "req": 3, "cubes": [[8, 5, 1], [8, 7, 1], [3, 8, 2], [6, 8, 2], [0, 0, 0]], "walls": [[3, 6], [2, 5], [2, 8], [1, 8], [1, 1], [1, 7], [6, 2], [8, 8]], "goals": [[1, 0], [7, 1]]}, {"name": "押し出し", "hint": "", "par": 6, "req": 3, "cubes": [[2, 5, 3], [1, 5, 1], [2, 6, 0], [7, 2, 0]], "walls": [[3, 1], [7, 1], [3, 4], [0, 6], [3, 6], [8, 1], [1, 0]], "goals": [[1, 3], [1, 8]]}, {"name": "渋滞", "hint": "", "par": 7, "req": 3, "cubes": [[1, 0, 0], [0, 6, 2], [8, 2, 1], [3, 8, 2]], "walls": [[7, 3], [1, 8], [8, 4], [0, 7], [5, 8], [5, 4], [1, 7]], "goals": [[4, 7], [2, 8]]}, {"name": "連鎖", "hint": "", "par": 7, "req": 4, "cubes": [[5, 2, 3], [4, 2, 1], [5, 3, 0], [8, 4, 1]], "walls": [[8, 2], [0, 7], [6, 1], [2, 2], [5, 7], [4, 0], [7, 5]], "goals": [[7, 0], [7, 7]]}, {"name": "背中合わせ", "hint": "", "par": 8, "req": 3, "cubes": [[7, 5, 1], [7, 4, 2], [8, 5, 3], [8, 0, 1]], "walls": [[7, 1], [6, 8], [0, 3], [4, 6], [7, 2], [0, 7], [3, 6]], "goals": [[3, 1], [0, 4]]}, {"name": "双子の塔", "hint": "", "par": 8, "req": 4, "cubes": [[1, 7, 2], [0, 7, 1], [1, 8, 0], [0, 8, 0]], "walls": [[3, 6], [5, 1], [2, 4], [0, 1], [0, 4], [0, 5], [7, 5]], "goals": [[6, 2], [7, 6]]}, {"name": "みっつの印", "hint": "ゴールが3つになりました。", "par": 4, "req": 2, "cubes": [[8, 6, 1], [5, 2, 2], [7, 8, 2], [6, 1, 0], [6, 0, 0]], "walls": [[1, 0], [5, 3], [4, 5], [4, 0], [3, 4], [5, 4], [2, 6], [0, 2]], "goals": [[5, 0], [8, 1], [7, 7]]}, {"name": "三叉路", "hint": "", "par": 4, "req": 3, "cubes": [[5, 4, 1], [8, 8, 2], [5, 0, 0], [2, 5, 3], [0, 4, 3]], "walls": [[7, 4], [4, 2], [2, 0], [1, 5], [6, 4], [2, 8], [0, 0]], "goals": [[3, 0], [6, 0], [8, 1]]}, {"name": "合流", "hint": "", "par": 5, "req": 3, "cubes": [[6, 0, 0], [4, 0, 1], [5, 8, 1], [8, 0, 0], [5, 5, 2]], "walls": [[5, 6], [5, 0], [4, 5], [0, 4], [4, 6], [6, 8], [3, 5], [7, 2]], "goals": [[7, 0], [8, 3], [8, 4]]}, {"name": "仕分け", "hint": "", "par": 5, "req": 3, "cubes": [[3, 7, 2], [7, 3, 0], [3, 8, 2], [8, 6, 1], [8, 0, 1], [3, 4, 3]], "walls": [[8, 1], [0, 7], [0, 4], [8, 7], [7, 2], [1, 1], [2, 4], [6, 1]], "goals": [[8, 3], [3, 5], [4, 5]]}, {"name": "玉突き", "hint": "", "par": 5, "req": 3, "cubes": [[5, 7, 2], [4, 1, 0], [4, 3, 3], [3, 3, 1], [8, 0, 1], [2, 0, 1]], "walls": [[4, 0], [7, 4], [3, 8], [6, 5], [7, 2], [2, 4], [1, 8], [5, 8], [3, 0]], "goals": [[7, 0], [4, 2], [8, 2]]}, {"name": "渦", "hint": "", "par": 6, "req": 3, "cubes": [[1, 0, 3], [8, 4, 1], [0, 0, 0], [5, 6, 1], [1, 8, 2], [8, 2, 1]], "walls": [[3, 5], [5, 3], [4, 2], [0, 5], [0, 3], [2, 1], [6, 1], [6, 6], [2, 4]], "goals": [[8, 1], [8, 3], [7, 4]]}, {"name": "迷い道", "hint": "", "par": 6, "req": 4, "cubes": [[1, 1, 3], [2, 0, 0], [8, 6, 1], [0, 1, 3], [0, 5, 0], [5, 0, 0]], "walls": [[0, 6], [6, 5], [0, 4], [2, 8], [6, 3], [8, 8], [8, 4], [1, 6]], "goals": [[3, 0], [8, 0], [5, 4]]}, {"name": "城壁", "hint": "", "par": 7, "req": 3, "cubes": [[4, 6, 2], [3, 2, 2], [6, 6, 2], [4, 7, 3], [7, 0, 0]], "walls": [[6, 7], [5, 0], [4, 8], [3, 7], [3, 3], [3, 5], [5, 2], [7, 1]], "goals": [[3, 0], [6, 5], [2, 8]]}, {"name": "分岐点", "hint": "", "par": 7, "req": 3, "cubes": [[0, 2, 3], [8, 0, 0], [0, 0, 3], [3, 7, 2], [1, 4, 0]], "walls": [[0, 6], [3, 8], [1, 3], [1, 7], [1, 8], [7, 7], [2, 4], [5, 4], [4, 3]], "goals": [[1, 0], [1, 1], [8, 1]]}, {"name": "折り返し", "hint": "", "par": 7, "req": 3, "cubes": [[0, 5, 3], [8, 8, 1], [4, 8, 2], [6, 8, 2], [0, 2, 3]], "walls": [[5, 0], [8, 5], [2, 8], [5, 1], [0, 0], [8, 0], [0, 6], [4, 4], [5, 4], [8, 4]], "goals": [[6, 1], [1, 2], [8, 6]]}, {"name": "綱渡り", "hint": "", "par": 7, "req": 3, "cubes": [[4, 2, 3], [3, 2, 1], [4, 3, 0], [2, 2, 1]], "walls": [[8, 3], [3, 6], [3, 4], [2, 5], [6, 1], [1, 1], [1, 7], [0, 3]], "goals": [[2, 0], [6, 3], [6, 8]]}, {"name": "格子", "hint": "", "par": 7, "req": 3, "cubes": [[6, 4, 3], [5, 4, 1], [6, 5, 0], [8, 6, 1]], "walls": [[3, 0], [1, 5], [5, 1], [7, 5], [1, 4], [1, 2], [2, 5], [7, 8]], "goals": [[6, 0], [1, 6], [6, 6]]}, {"name": "大移動", "hint": "", "par": 8, "req": 3, "cubes": [[1, 1, 2], [0, 1, 1], [1, 2, 0], [2, 8, 2]], "walls": [[1, 3], [6, 5], [0, 7], [5, 3], [5, 8], [3, 2], [0, 6], [6, 7]], "goals": [[5, 0], [3, 1], [4, 8]]}, {"name": "隙間", "hint": "", "par": 8, "req": 3, "cubes": [[8, 2, 1], [0, 1, 3], [8, 3, 1], [0, 5, 3]], "walls": [[8, 7], [6, 7], [2, 6], [2, 8], [7, 0], [5, 5], [4, 1], [6, 5]], "goals": [[4, 2], [1, 5], [8, 8]]}, {"name": "最後の壁", "hint": "", "par": 8, "req": 4, "cubes": [[0, 4, 3], [7, 4, 0], [0, 3, 3], [3, 1, 0]], "walls": [[4, 8], [2, 8], [3, 0], [3, 7], [7, 3], [6, 7], [8, 8], [5, 5]], "goals": [[0, 5], [8, 5], [2, 7]]}, {"name": "ピヴィティ", "hint": "", "par": 9, "req": 4, "cubes": [[6, 4, 3], [7, 4, 3], [6, 5, 0], [0, 7, 3]], "walls": [[5, 4], [2, 4], [8, 1], [0, 4], [1, 2], [5, 1], [4, 1], [0, 1], [0, 8]], "goals": [[2, 2], [0, 6], [4, 8]]}];
-const TICK = 110;
+const LEVELS = [{"name": "はじめの一手", "hint": "キューブをフリック（PCはドラッグ）すると、その方向へ向きが変わります。", "par": 1, "req": 1, "cubes": [[8, 4, 1]], "walls": [], "goals": [[8, 8]]}, {"name": "曲がり角", "hint": "向きが変わり終わると、すぐに矢印の方向へ進みます。", "par": 2, "req": 1, "cubes": [[0, 0, 0]], "walls": [[5, 0]], "goals": [[4, 8]]}, {"name": "寄り道", "hint": "2つのキューブが同じマスを狙うと、手前で止まって時計回りに1回転します。", "par": 2, "req": 2, "cubes": [[5, 6, 0], [4, 6, 1], [5, 5, 2]], "walls": [[3, 5], [5, 7]], "goals": [[4, 7]]}, {"name": "通せんぼ", "hint": "壁やほかのキューブにぶつかると止まります。", "par": 2, "req": 1, "cubes": [[2, 8, 2], [1, 4, 2], [0, 2, 3]], "walls": [[1, 5], [1, 0], [0, 4], [4, 5], [3, 3]], "goals": [[0, 5]]}, {"name": "すれ違い", "hint": "", "par": 2, "req": 1, "cubes": [[1, 8, 2], [0, 5, 3], [8, 1, 1]], "walls": [[4, 8], [3, 3], [0, 6], [5, 7], [7, 4], [7, 6]], "goals": [[3, 4]]}, {"name": "段差", "hint": "", "par": 2, "req": 1, "cubes": [[3, 8, 2], [0, 6, 3], [8, 7, 1]], "walls": [[5, 3], [1, 3], [6, 4], [7, 5], [3, 2], [1, 1]], "goals": [[4, 3]]}, {"name": "抜け道", "hint": "", "par": 3, "req": 2, "cubes": [[4, 0, 0], [0, 5, 3], [1, 8, 2]], "walls": [[2, 4], [0, 6], [0, 8], [3, 7], [4, 7], [4, 8]], "goals": [[8, 4]]}, {"name": "行き止まり", "hint": "", "par": 3, "req": 2, "cubes": [[8, 4, 1], [0, 2, 3], [7, 0, 0], [8, 3, 1]], "walls": [[2, 8], [2, 3], [6, 5], [0, 6], [8, 1], [0, 7]], "goals": [[1, 7]]}, {"name": "迂回路", "hint": "", "par": 3, "req": 2, "cubes": [[0, 3, 3], [5, 8, 2], [6, 8, 2], [4, 2, 0]], "walls": [[5, 2], [8, 6], [3, 6], [8, 4], [7, 5], [4, 1], [8, 1]], "goals": [[5, 0]]}, {"name": "回り道", "hint": "", "par": 4, "req": 2, "cubes": [[2, 0, 0], [8, 8, 1], [8, 3, 1], [8, 4, 1]], "walls": [[7, 4], [7, 0], [5, 0], [5, 2], [4, 8], [5, 3]], "goals": [[5, 7]]}, {"name": "右の塔", "hint": "", "par": 4, "req": 2, "cubes": [[7, 3, 0], [7, 2, 2], [6, 3, 1], [3, 2, 2]], "walls": [[6, 7], [6, 6], [1, 3], [5, 1], [3, 3], [7, 6], [7, 8]], "goals": [[8, 6]]}, {"name": "落とし穴", "hint": "", "par": 6, "req": 2, "cubes": [[3, 4, 3], [3, 3, 2], [2, 4, 1], [2, 7, 2]], "walls": [[2, 8], [4, 3], [8, 1], [3, 2], [1, 7], [5, 3], [7, 4]], "goals": [[7, 6]]}, {"name": "見張り", "hint": "", "par": 7, "req": 3, "cubes": [[3, 7, 2], [2, 7, 1], [3, 8, 0], [0, 5, 3]], "walls": [[6, 4], [0, 0], [6, 8], [1, 3], [5, 0], [3, 4], [2, 2]], "goals": [[5, 4]]}, {"name": "長い坂", "hint": "", "par": 8, "req": 3, "cubes": [[7, 5, 0], [7, 4, 2], [6, 5, 1], [3, 0, 0]], "walls": [[7, 6], [6, 3], [8, 4], [1, 3], [8, 3], [4, 1], [6, 1]], "goals": [[5, 6]]}, {"name": "総動員", "hint": "", "par": 9, "req": 4, "cubes": [[1, 6, 3], [1, 7, 0], [0, 6, 1], [1, 3, 2]], "walls": [[5, 2], [2, 6], [1, 4], [2, 0], [6, 4], [3, 5], [8, 1], [3, 8]], "goals": [[4, 6]]}, {"name": "ふたつの印", "hint": "ゴールが2つ。すべてのゴールにキューブを止めるとクリアです。", "par": 3, "req": 3, "cubes": [[1, 7, 3], [0, 4, 3], [0, 5, 2]], "walls": [[0, 6], [3, 0], [5, 6], [0, 7], [4, 1], [8, 6]], "goals": [[1, 0], [0, 1]]}, {"name": "並走", "hint": "", "par": 4, "req": 2, "cubes": [[4, 8, 3], [3, 8, 1], [3, 0, 0], [8, 6, 1], [1, 3, 3]], "walls": [[6, 2], [5, 5], [1, 7], [6, 6], [1, 6], [3, 4], [0, 3]], "goals": [[1, 2], [8, 8]]}, {"name": "待ち合わせ", "hint": "", "par": 4, "req": 2, "cubes": [[5, 4, 2], [2, 6, 2], [6, 8, 2], [2, 5, 2], [4, 0, 0]], "walls": [[0, 0], [6, 1], [7, 4], [3, 1], [3, 7], [5, 5], [2, 7], [4, 3]], "goals": [[1, 0], [2, 4]]}, {"name": "交差点", "hint": "", "par": 4, "req": 3, "cubes": [[0, 0, 0], [8, 2, 1], [1, 0, 0], [8, 4, 1]], "walls": [[0, 7], [1, 7], [1, 6], [7, 1], [5, 1], [5, 5], [0, 4]], "goals": [[7, 0], [6, 8]]}, {"name": "二重扉", "hint": "", "par": 5, "req": 2, "cubes": [[6, 0, 0], [8, 2, 1], [3, 3, 3], [7, 6, 1], [0, 1, 3]], "walls": [[8, 6], [0, 5], [4, 2], [7, 5], [1, 6], [2, 3], [0, 6]], "goals": [[1, 1], [5, 8]]}, {"name": "向かい風", "hint": "", "par": 5, "req": 2, "cubes": [[8, 6, 0], [6, 8, 2], [5, 8, 1], [0, 0, 3], [4, 6, 2]], "walls": [[5, 3], [3, 0], [5, 7], [4, 7], [8, 5], [8, 2], [7, 3], [1, 5]], "goals": [[2, 5], [7, 8]]}, {"name": "挟み撃ち", "hint": "", "par": 5, "req": 2, "cubes": [[5, 6, 3], [0, 3, 3], [3, 6, 1], [4, 1, 0], [0, 4, 3]], "walls": [[4, 0], [2, 8], [5, 2], [7, 1], [2, 2], [5, 8], [4, 6]], "goals": [[8, 0], [7, 2]]}, {"name": "積み木", "hint": "", "par": 5, "req": 3, "cubes": [[0, 5, 3], [2, 2, 0], [4, 3, 2], [3, 1, 3], [1, 1, 2], [5, 2, 3]], "walls": [[4, 4], [4, 2], [5, 8], [5, 3], [1, 2], [0, 6], [2, 1], [4, 5]], "goals": [[0, 0], [8, 3]]}, {"name": "遠回り", "hint": "", "par": 6, "req": 2, "cubes": [[1, 3, 2], [7, 0, 0], [6, 6, 2], [4, 0, 0], [2, 5, 0]], "walls": [[2, 4], [8, 0], [2, 7], [5, 0], [1, 4], [6, 7], [0, 8], [8, 8]], "goals": [[3, 5], [3, 8]]}, {"name": "階段", "hint": "", "par": 6, "req": 3, "cubes": [[8, 5, 1], [8, 7, 1], [3, 8, 2], [6, 8, 2], [0, 0, 0]], "walls": [[3, 6], [2, 5], [2, 8], [1, 8], [1, 1], [1, 7], [6, 2], [8, 8]], "goals": [[1, 0], [7, 1]]}, {"name": "押し出し", "hint": "", "par": 6, "req": 3, "cubes": [[2, 5, 3], [1, 5, 1], [2, 6, 0], [7, 2, 0]], "walls": [[3, 1], [7, 1], [3, 4], [0, 6], [3, 6], [8, 1], [1, 0]], "goals": [[1, 3], [1, 8]]}, {"name": "渋滞", "hint": "", "par": 7, "req": 3, "cubes": [[1, 0, 0], [0, 6, 2], [8, 2, 1], [3, 8, 2]], "walls": [[7, 3], [1, 8], [8, 4], [0, 7], [5, 8], [5, 4], [1, 7]], "goals": [[4, 7], [2, 8]]}, {"name": "連鎖", "hint": "", "par": 7, "req": 4, "cubes": [[5, 2, 3], [4, 2, 1], [5, 3, 0], [8, 4, 1]], "walls": [[8, 2], [0, 7], [6, 1], [2, 2], [5, 7], [4, 0], [7, 5]], "goals": [[7, 0], [7, 7]]}, {"name": "背中合わせ", "hint": "", "par": 8, "req": 3, "cubes": [[7, 5, 1], [7, 4, 2], [8, 5, 3], [8, 0, 1]], "walls": [[7, 1], [6, 8], [0, 3], [4, 6], [7, 2], [0, 7], [3, 6]], "goals": [[3, 1], [0, 4]]}, {"name": "双子の塔", "hint": "", "par": 8, "req": 4, "cubes": [[1, 7, 2], [0, 7, 1], [1, 8, 0], [0, 8, 0]], "walls": [[3, 6], [5, 1], [2, 4], [0, 1], [0, 4], [0, 5], [7, 5]], "goals": [[6, 2], [7, 6]]}, {"name": "みっつの印", "hint": "ゴールが3つになりました。", "par": 4, "req": 2, "cubes": [[8, 6, 1], [5, 2, 2], [7, 8, 2], [6, 1, 0], [6, 0, 0]], "walls": [[1, 0], [5, 3], [4, 5], [4, 0], [3, 4], [5, 4], [2, 6], [0, 2]], "goals": [[5, 0], [8, 1], [7, 7]]}, {"name": "三叉路", "hint": "", "par": 4, "req": 3, "cubes": [[5, 4, 1], [8, 8, 2], [5, 0, 0], [2, 5, 3], [0, 4, 3]], "walls": [[7, 4], [4, 2], [2, 0], [1, 5], [6, 4], [2, 8], [0, 0]], "goals": [[3, 0], [6, 0], [8, 1]]}, {"name": "合流", "hint": "", "par": 5, "req": 3, "cubes": [[6, 0, 0], [4, 0, 1], [5, 8, 1], [8, 0, 0], [5, 5, 2]], "walls": [[5, 6], [5, 0], [4, 5], [0, 4], [4, 6], [6, 8], [3, 5], [7, 2]], "goals": [[7, 0], [8, 3], [8, 4]]}, {"name": "仕分け", "hint": "", "par": 5, "req": 3, "cubes": [[3, 7, 2], [7, 3, 0], [3, 8, 2], [8, 6, 1], [8, 0, 1], [3, 4, 3]], "walls": [[8, 1], [0, 7], [0, 4], [8, 7], [7, 2], [1, 1], [2, 4], [6, 1]], "goals": [[8, 3], [3, 5], [4, 5]]}, {"name": "玉突き", "hint": "", "par": 5, "req": 3, "cubes": [[5, 7, 2], [4, 1, 0], [4, 3, 3], [3, 3, 1], [8, 0, 1], [2, 0, 1]], "walls": [[4, 0], [7, 4], [3, 8], [6, 5], [7, 2], [2, 4], [1, 8], [5, 8], [3, 0]], "goals": [[7, 0], [4, 2], [8, 2]]}, {"name": "渦", "hint": "", "par": 6, "req": 3, "cubes": [[1, 0, 3], [8, 4, 1], [0, 0, 0], [5, 6, 1], [1, 8, 2], [8, 2, 1]], "walls": [[3, 5], [5, 3], [4, 2], [0, 5], [0, 3], [2, 1], [6, 1], [6, 6], [2, 4]], "goals": [[8, 1], [8, 3], [7, 4]]}, {"name": "迷い道", "hint": "", "par": 6, "req": 4, "cubes": [[1, 1, 3], [2, 0, 0], [8, 6, 1], [0, 1, 3], [0, 5, 0], [5, 0, 0]], "walls": [[0, 6], [6, 5], [0, 4], [2, 8], [6, 3], [8, 8], [8, 4], [1, 6]], "goals": [[3, 0], [8, 0], [5, 4]]}, {"name": "城壁", "hint": "", "par": 7, "req": 3, "cubes": [[4, 6, 2], [3, 2, 2], [6, 6, 2], [4, 7, 3], [7, 0, 0]], "walls": [[6, 7], [5, 0], [4, 8], [3, 7], [3, 3], [3, 5], [5, 2], [7, 1]], "goals": [[3, 0], [6, 5], [2, 8]]}, {"name": "分岐点", "hint": "", "par": 7, "req": 3, "cubes": [[0, 2, 3], [8, 0, 0], [0, 0, 3], [3, 7, 2], [1, 4, 0]], "walls": [[0, 6], [3, 8], [1, 3], [1, 7], [1, 8], [7, 7], [2, 4], [5, 4], [4, 3]], "goals": [[1, 0], [1, 1], [8, 1]]}, {"name": "折り返し", "hint": "", "par": 7, "req": 3, "cubes": [[0, 5, 3], [8, 8, 1], [4, 8, 2], [6, 8, 2], [0, 2, 3]], "walls": [[5, 0], [8, 5], [2, 8], [5, 1], [0, 0], [8, 0], [0, 6], [4, 4], [5, 4], [8, 4]], "goals": [[6, 1], [1, 2], [8, 6]]}, {"name": "綱渡り", "hint": "", "par": 7, "req": 3, "cubes": [[4, 2, 3], [3, 2, 1], [4, 3, 0], [2, 2, 1]], "walls": [[8, 3], [3, 6], [3, 4], [2, 5], [6, 1], [1, 1], [1, 7], [0, 3]], "goals": [[2, 0], [6, 3], [6, 8]]}, {"name": "大移動", "hint": "", "par": 8, "req": 3, "cubes": [[1, 1, 2], [0, 1, 1], [1, 2, 0], [2, 8, 2]], "walls": [[1, 3], [6, 5], [0, 7], [5, 3], [5, 8], [3, 2], [0, 6], [6, 7]], "goals": [[5, 0], [3, 1], [4, 8]]}, {"name": "隙間", "hint": "", "par": 8, "req": 3, "cubes": [[8, 2, 1], [0, 1, 3], [8, 3, 1], [0, 5, 3]], "walls": [[8, 7], [6, 7], [2, 6], [2, 8], [7, 0], [5, 5], [4, 1], [6, 5]], "goals": [[4, 2], [1, 5], [8, 8]]}, {"name": "最後の壁", "hint": "", "par": 8, "req": 4, "cubes": [[0, 4, 3], [7, 4, 0], [0, 3, 3], [3, 1, 0]], "walls": [[4, 8], [2, 8], [3, 0], [3, 7], [7, 3], [6, 7], [8, 8], [5, 5]], "goals": [[0, 5], [8, 5], [2, 7]]}, {"name": "ピヴィティ", "hint": "", "par": 9, "req": 4, "cubes": [[6, 4, 3], [7, 4, 3], [6, 5, 0], [0, 7, 3]], "walls": [[5, 4], [2, 4], [8, 1], [0, 4], [1, 2], [5, 1], [4, 1], [0, 1], [0, 8]], "goals": [[2, 2], [0, 6], [4, 8]]}, {"name": "回転木馬", "hint": "縁を矢印が回るラウンドキューブは、1マス進むたびに向きが90°変わります。", "cubes": [[0, 4, 2, 1]], "walls": [[2, 2], [6, 1], [4, 2], [0, 5], [5, 8]], "goals": [[1, 5]], "par": 1, "req": 1}, {"name": "つむじ風", "hint": "ラウンドキューブは、止まるまで曲がり続けます。", "cubes": [[2, 6, 0, 1], [8, 0, 0]], "walls": [[6, 8], [1, 2], [2, 5], [0, 8], [2, 8], [8, 6]], "goals": [[2, 4]], "par": 2, "req": 1}, {"name": "渦巻き", "hint": "", "cubes": [[1, 5, 0, 1], [2, 5, 3]], "walls": [[1, 4], [7, 1], [0, 1], [1, 7], [7, 7], [7, 3]], "goals": [[1, 8]], "par": 3, "req": 1}, {"name": "風見鶏", "hint": "ラウンドキューブをタップすると、回る向きが逆になります。手数には数えません。", "cubes": [[4, 1, 0, 1], [2, 3, 1]], "walls": [[5, 7], [2, 2], [4, 0], [3, 3], [0, 8], [1, 0]], "goals": [[7, 0]], "par": 3, "req": 1}, {"name": "糸巻き", "hint": "", "cubes": [[0, 4, 2, 1], [1, 4, 3]], "walls": [[0, 5], [4, 3], [8, 6], [6, 1], [6, 6], [2, 2]], "goals": [[1, 2]], "par": 3, "req": 2}, {"name": "舞台", "hint": "ゴール2つ。すべてのゴールにキューブを止めるとクリアです。", "cubes": [[5, 5, 0, 1], [4, 5, 1], [0, 4, 3]], "walls": [[7, 7], [0, 8], [5, 1], [5, 4], [5, 3], [2, 7], [6, 6], [4, 7]], "goals": [[8, 3], [8, 5]], "par": 5, "req": 1}, {"name": "振り子", "hint": "", "cubes": [[8, 8, 3, 1], [8, 6, 1], [3, 8, 2]], "walls": [[7, 7], [2, 1], [4, 0], [7, 8], [5, 1], [3, 3], [4, 3], [5, 4]], "goals": [[8, 0], [8, 4]], "par": 5, "req": 2}, {"name": "歯車", "hint": "", "cubes": [[0, 6, 1, 1], [5, 8, 2], [2, 6, 3]], "walls": [[1, 6], [5, 1], [2, 4], [8, 6], [7, 8], [5, 5], [7, 6], [1, 4]], "goals": [[2, 5], [4, 6]], "par": 4, "req": 3}, {"name": "螺旋", "hint": "", "cubes": [[1, 8, 2], [0, 3, 3], [0, 8, 2], [8, 1, 0, 1]], "walls": [[5, 6], [4, 8], [8, 0], [1, 0], [6, 0], [4, 0], [8, 2], [2, 2]], "goals": [[5, 0], [7, 0]], "par": 6, "req": 2}, {"name": "旋回", "hint": "", "cubes": [[6, 5, 2], [0, 1, 3], [7, 0, 0], [6, 6, 1, 1]], "walls": [[8, 2], [2, 5], [2, 6], [5, 4], [5, 6], [2, 8], [3, 5], [7, 6]], "goals": [[1, 1], [7, 4]], "par": 6, "req": 3}, {"name": "輪舞", "hint": "ゴールが3つになりました。", "cubes": [[7, 3, 1], [0, 2, 3], [2, 5, 2], [8, 2, 2, 1]], "walls": [[2, 7], [0, 5], [8, 1], [2, 6], [1, 6], [0, 4], [3, 4], [8, 3], [6, 6]], "goals": [[0, 1], [6, 2], [6, 3]], "par": 6, "req": 3}, {"name": "竜巻", "hint": "", "cubes": [[7, 1, 2], [7, 2, 0], [8, 1, 3], [6, 6, 1, 1]], "walls": [[2, 5], [4, 5], [3, 0], [1, 4], [3, 3], [6, 2], [7, 6], [5, 7], [1, 2]], "goals": [[8, 0], [6, 3], [7, 8]], "par": 7, "req": 3}, {"name": "大車輪", "hint": "", "cubes": [[1, 3, 3], [0, 2, 3], [7, 0, 0], [4, 0, 3, 1]], "walls": [[0, 5], [1, 7], [0, 3], [3, 0], [0, 4], [6, 6], [4, 5], [0, 1], [7, 6]], "goals": [[1, 0], [1, 1], [5, 6]], "par": 8, "req": 3}, {"name": "公転", "hint": "", "cubes": [[5, 5, 0], [4, 7, 2], [6, 8, 1], [1, 8, 0, 1]], "walls": [[3, 6], [3, 2], [8, 7], [4, 8], [1, 7], [3, 8], [7, 8], [5, 4], [2, 7]], "goals": [[8, 0], [2, 4], [1, 6]], "par": 8, "req": 3}, {"name": "天球", "hint": "", "cubes": [[1, 7, 1], [1, 6, 2], [2, 7, 3], [1, 8, 3, 1]], "walls": [[3, 7], [0, 6], [0, 7], [2, 8], [7, 5], [0, 0], [8, 3], [0, 8], [5, 6]], "goals": [[0, 4], [0, 5], [2, 5]], "par": 8, "req": 4}];
+const BASE_TICK = 110;
+let TICK = BASE_TICK;
 const $ = s => document.querySelector(s);
 const rnd = n => Math.floor(Math.random() * n);
 const ARROW = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 4.5 11h4.8v9.5h5.4V11h4.8z" fill="currentColor"/></svg>';
 const DIRNAME = ['上', '右', '下', '左'];
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-document.documentElement.style.setProperty('--tick', TICK + 'ms');
+
 
 /* ---------- star icons ---------- */
 const STAR_PATH = 'M12 2.4l2.9 6 6.5.8-4.8 4.5 1.2 6.5L12 17l-5.8 3.2 1.2-6.5-4.8-4.5 6.5-.8z';
@@ -373,7 +420,17 @@ function starSVG(shine, cls = '') {
 /* ---------- storage ---------- */
 function load(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
 function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
-let progress = load('pivity.progress.v2', {});
+let progress = load('pivity.progress.v3', null);
+if (!progress) {
+  // carry over records from the previous stage order
+  const prev = load('pivity.progress.v2', {}), map = i => i < 14 ? i : i < 29 ? i + 1 : i < 40 ? i + 1 : i === 40 ? -1 : i;
+  progress = {};
+  for (const k in prev) { const n = map(+k); if (n >= 0) progress[n] = prev[k]; }
+  save('pivity.progress.v3', progress);
+}
+
+// stages 48, 49, 56, 59, 60 were replaced when round cubes got the tap-to-flip rule
+if (!load('pivity.round.v2', false)) { for (const i of [47, 48, 55, 58, 59]) delete progress[i]; save('pivity.progress.v3', progress); save('pivity.round.v2', true); }
 
 /* ---------- screens ---------- */
 function show(id) {
@@ -388,9 +445,10 @@ function toast(msg) {
 
 /* ---------- title intro ---------- */
 let introDone = false, introTimers = [];
-function makeFace(angle) {
-  const f = document.createElement('div'); f.className = 'face';
-  f.innerHTML = ARROW; f.style.transform = `rotate(${angle}deg)`; return f;
+const ORBIT = '<svg class="orbit" viewBox="0 0 100 100" aria-hidden="true"><g class="ring"><circle class="track" cx="50" cy="50" r="41"/><path class="trail" d="M21 21 A41 41 0 0 1 50 9"/><path class="tip" d="M50 1 L62 9 L50 17 Z"/></g></svg>';
+function makeFace(angle, round) {
+  const f = document.createElement('div'); f.className = 'face' + (round ? ' round' : '');
+  f.innerHTML = ARROW + (round ? ORBIT : ''); f.style.transform = `rotate(${angle}deg)`; return f;
 }
 function playIntro() {
   const cover = $('#cover'), logo = $('#logo');
@@ -432,14 +490,14 @@ $('#title').addEventListener('pointerdown', e => {
 });
 
 /* ---------- stage select ---------- */
-const GROUPS = [[0, 14, 1], [14, 29, 2], [29, 45, 3]];
+const GROUPS = [[0, 15, 1], [15, 30, 2], [30, 45, 3], [45, 60, 'r']];
 function goalSwatches(n) { return '<span class="sw"></span>'.repeat(n); }
 function renderSelect() {
   const box = $('#stages'); box.innerHTML = '';
   let total = 0, perfect = 0;
   for (const [a, b, g] of GROUPS) {
     const h = document.createElement('h3'); h.className = 'group';
-    h.innerHTML = `${goalSwatches(g)}<span>ゴール${g}つ</span><small>${a + 1}–${b}</small>`;
+    h.innerHTML = g === 'r' ? `<span class="rsw"></span><span>ラウンド</span><small>${a + 1}–${b}</small>` : `${goalSwatches(g)}<span>ゴール${g}つ</span><small>${a + 1}–${b}</small>`;
     box.appendChild(h);
     const grid = document.createElement('div'); grid.className = 'stagegrid'; box.appendChild(grid);
     for (let i = a; i < b; i++) {
@@ -461,47 +519,54 @@ function renderSelect() {
 }
 
 /* ---------- board rendering ---------- */
-(function () { const c = $('#cells'); for (let i = 0; i < 81; i++) c.appendChild(document.createElement('i')); })();
+// background cells are positioned exactly like the pieces, so cubes, walls and goals always sit dead-center on them
+(function () {
+  const c = $('#cells');
+  for (let i = 0; i < 81; i++) { const d = document.createElement('i'); d.className = 'piece'; d.style.transform = `translate(${(i % 9) * 100}%, ${((i / 9) | 0) * 100}%)`; c.appendChild(d); }
+})();
 const layer = $('#layer');
 function pos(el, x, y) { el.style.transform = `translate(${x * 100}%, ${y * 100}%)`; }
 function staticPiece(cls, x, y) { const d = document.createElement('div'); d.className = 'piece ' + cls; pos(d, x, y); layer.appendChild(d); return d; }
-function cubeEl(x, y, d) {
-  const b = document.createElement('button'); b.className = 'piece cube'; b.dataset.d = d;
+function cubeLabel(d, round, spin) { return round ? `ラウンドキューブ ${DIRNAME[d]}向き・${spin === 3 ? '反時計回り' : '時計回り'}（矢印キーで向き、スペースで回転方向を変更）` : `キューブ ${DIRNAME[d]}向き（矢印キーで向きを変更）`; }
+function cubeEl(x, y, d, round, spin) {
+  const b = document.createElement('button'); b.className = 'piece cube' + (round ? ' round' : '') + (spin === 3 ? ' ccw' : ''); b.dataset.d = d;
   const pop = document.createElement('div'); pop.className = 'pop';
-  pop.appendChild(makeFace(d * 90)); b.appendChild(pop);
+  pop.appendChild(makeFace(d * 90, round)); b.appendChild(pop);
   const guide = document.createElement('div'); guide.className = 'guide';
   for (let k = 0; k < 4; k++) { const g = document.createElement('span'); g.className = 'g g' + k; g.dataset.d = k; g.innerHTML = ARROW; guide.appendChild(g); }
   b.appendChild(guide);
-  pos(b, x, y); b.setAttribute('aria-label', DIRNAME[d] + '向きのキューブ（矢印キーで向きを変更）');
+  pos(b, x, y); b.setAttribute('aria-label', cubeLabel(d, round, spin));
   layer.appendChild(b); return b;
 }
 
 /* ---------- play ---------- */
 let mode = 'none';      // 'stage' | 'test'
 let sub = 'play';       // test room: 'edit' | 'play'
-let stageIdx = 0, state = null, views = [], goalEls = [], timer = null, moves = 0, finished = false, drag = null;
+let orbitWarned = false, stageIdx = 0, state = null, views = [], goalEls = [], timer = null, moves = 0, finished = false, drag = null;
 
+let timerTick = 0;
 function stopLoop() { clearInterval(timer); timer = null; }
 function cellPx() { return $('#board').getBoundingClientRect().width / 9; }
 function setupPlay(lv) {
-  stopLoop(); layer.innerHTML = ''; finished = false; moves = 0; drag = null;
+  stopLoop(); layer.innerHTML = ''; finished = false; moves = 0; drag = null; orbitWarned = false;
   state = makeState(lv);
   goalEls = state.goals.map(g => staticPiece('goal', g[0], g[1]));
   for (const [x, y] of lv.walls) staticPiece('wall', x, y);
   views = state.cubes.map(c => {
-    const el = cubeEl(c.x, c.y, c.d);
+    const el = cubeEl(c.x, c.y, c.d, c.round, c.spin);
     const v = { c, el, pop: el.querySelector('.pop'), face: el.querySelector('.face'), guide: el.querySelector('.guide'), angle: c.d * 90, vd: c.d };
     attachFlick(v);
     return v;
   });
   updateCount();
   timer = setInterval(tick, TICK);
+  timerTick = TICK;
 }
 function attachFlick(v) {
   const el = v.el;
   el.addEventListener('pointerdown', e => {
     if (finished || drag) return;
-    if (anyMoving()) { e.preventDefault(); return; }
+    if (anyMoving() || isOrbiting(v)) { e.preventDefault(); return; }
     e.preventDefault();
     try { el.setPointerCapture(e.pointerId); } catch (_) {}
     drag = { v, x0: e.clientX, y0: e.clientY, dir: -1, id: e.pointerId };
@@ -519,11 +584,13 @@ function attachFlick(v) {
     if (!drag || drag.v !== v || e.pointerId !== drag.id) return;
     const dir = drag.dir; drag = null; el.classList.remove('dragging'); v.guide.removeAttribute('data-sel');
     if (apply && dir >= 0) flick(v, dir);
+    else if (apply && e.type === 'pointerup') tapCube(v);
   };
   el.addEventListener('pointerup', end(true));
   el.addEventListener('pointercancel', end(false));
   el.addEventListener('lostpointercapture', end(true));
   el.addEventListener('keydown', e => {
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); tapCube(v); return; }
     const k = { ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3 }[e.key];
     if (k == null) return; e.preventDefault(); flick(v, k);
   });
@@ -537,8 +604,11 @@ function turnVisual(v, t) {
   let delta = (t - v.vd + 4) % 4; if (delta === 3) delta = -1;
   v.angle += delta * 90; v.vd = t; v.face.style.transform = `rotate(${v.angle}deg)`;
 }
+function isOrbiting(v) { return v.c.round && v.c.run >= 4 && !v.c.park; }
 function isMoving(v) {
   const c = v.c;
+  if (isOrbiting(v)) return false;          // a round cube circling in open space never settles; don't lock input for it
+  if (c.park) return false;                 // round cube that came back to its start and stopped
   if (v.wasMoving) return true;
   if (c.rot > 0) return false;
   const nx = c.x + DX[c.d], ny = c.y + DY[c.d];
@@ -547,12 +617,33 @@ function isMoving(v) {
 }
 function anyMoving() { return views.some(isMoving); }
 function flick(v, dir) {
-  if (finished || anyMoving()) return;
+  if (finished || anyMoving() || isOrbiting(v)) return;
   if (!flickCube(v.c, dir)) return;
   moves++; turnVisual(v, dir); Snd.se.flick(dir);
   v.el.dataset.d = dir;
-  v.el.setAttribute('aria-label', DIRNAME[dir] + '向きのキューブ（矢印キーで向きを変更）');
+  v.el.setAttribute('aria-label', cubeLabel(dir, v.c.round, v.c.spin));
   updateCount();
+}
+// tap (no flick) on a round cube: flip its turning direction. Free — not counted as a move.
+function tapCube(v) {
+  if (finished || !v.c.round || anyMoving() || isOrbiting(v)) return;
+  toggleSpin(v.c);
+  v.el.classList.toggle('ccw', v.c.spin === 3);
+  v.el.setAttribute('aria-label', cubeLabel(targetDir(v.c), true, v.c.spin));
+  v.pop.classList.remove('flip'); void v.pop.offsetWidth; v.pop.classList.add('flip');
+  Snd.se.spin(v.c.spin === 3);
+}
+const FX_SVG = (() => {
+  let dots = '';
+  for (let i = 0; i < 6; i++) { const t = i * Math.PI / 3 + 0.3, r = 44; dots += `<circle cx="${50 + Math.cos(t) * r}" cy="${50 + Math.sin(t) * r}" r="${i % 2 ? 2.4 : 3.4}"/>`; }
+  return `<svg viewBox="0 0 100 100" aria-hidden="true"><g class="arcs"><path d="M50 14 A36 36 0 0 1 86 50"/><path d="M50 86 A36 36 0 0 1 14 50"/>
+<path class="head" d="M86 50 l-7 -9 M86 50 l8 -8"/><path class="head" d="M14 50 l7 9 M14 50 l-8 8"/></g><g class="dots">${dots}</g></svg>`;
+})();
+function spinFx(x, y, d) {
+  if (reduceMotion) return;
+  const fx = document.createElement('div'); fx.className = 'piece fx'; fx.dataset.d = d;
+  fx.innerHTML = FX_SVG; pos(fx, x, y); layer.appendChild(fx);
+  setTimeout(() => fx.remove(), 850);
 }
 function tick() {
   const ev = stepState(state);
@@ -560,8 +651,10 @@ function tick() {
   let landed = false;
   for (const v of views) { const m = ev.moved.includes(v.c); if (v.wasMoving && !m && v.c.rot === 0 && !ev.collided.includes(v.c)) landed = true; v.wasMoving = m; }
   if (landed && !ev.collided.length) Snd.se.land();
+  for (const c of ev.turned) turnVisual(views[c.id], c.d);
+  if (ev.orbit && !orbitWarned) { orbitWarned = true; toast('ラウンドキューブが回り続けています。やり直す（R）で戻せます'); }
   for (const c of ev.collided) {
-    const v = views[c.id]; turnVisual(v, c.nd);
+    const v = views[c.id]; turnVisual(v, c.nd); spinFx(c.x, c.y, c.nd);
     v.pop.classList.remove('bump'); void v.pop.offsetWidth; v.pop.classList.add('bump');
   }
   for (const v of views) { pos(v.el, v.c.x, v.c.y); v.el.dataset.d = targetDir(v.c); }
@@ -581,7 +674,7 @@ function onWin() {
   for (const v of views) if (state.goals.some(g => g[0] === v.c.x && g[1] === v.c.y)) v.el.classList.add('win');
   if (mode === 'stage') {
     const lv = LEVELS[stageIdx];
-    if (progress[stageIdx] == null || moves < progress[stageIdx]) { progress[stageIdx] = moves; save('pivity.progress.v2', progress); }
+    if (progress[stageIdx] == null || moves < progress[stageIdx]) { progress[stageIdx] = moves; save('pivity.progress.v3', progress); }
     const perfect = moves <= lv.par;
     Snd.se.clear(perfect);
     setTimeout(() => {
@@ -643,13 +736,14 @@ let edit = load('pivity.testroom.v2', null) || JSON.parse(JSON.stringify(DEFAULT
 let tool = 'c2';
 const TOOLS = [
   ['c0', '上向きキューブ'], ['c1', '右向きキューブ'], ['c2', '下向きキューブ'], ['c3', '左向きキューブ'],
+  ['r0', '上向きラウンド'], ['r1', '右向きラウンド'], ['r2', '下向きラウンド'], ['r3', '左向きラウンド'],
   ['wall', '壁'], ['goal', `ゴール（${MAX_GOALS}つまで）`], ['erase', '消す']
 ];
 (function buildPalette() {
   const p = $('#palette');
   for (const [id, label] of TOOLS) {
     const b = document.createElement('button'); b.className = 'tool'; b.dataset.tool = id; b.setAttribute('aria-label', label);
-    if (id[0] === 'c') { b.dataset.d = id[1]; b.appendChild(makeFace(+id[1] * 90)); }
+    if (id[0] === 'c' || id[0] === 'r') { b.dataset.d = id[1]; b.appendChild(makeFace(+id[1] * 90, id[0] === 'r')); }
     else if (id === 'wall') b.classList.add('t-wall');
     else if (id === 'goal') b.classList.add('t-goal');
     else { b.classList.add('t-erase'); b.textContent = '消す'; }
@@ -665,7 +759,7 @@ function renderEdit() {
   stopLoop(); layer.innerHTML = '';
   for (const [x, y] of edit.goals) staticPiece('goal', x, y);
   for (const [x, y] of edit.walls) staticPiece('wall', x, y);
-  for (const [x, y, d] of edit.cubes) cubeEl(x, y, d).tabIndex = -1;
+  for (const [x, y, d, r] of edit.cubes) cubeEl(x, y, d, !!r, r === 2 ? 3 : 1).tabIndex = -1;
   $('#codeText').value = encodeCode(edit);
 }
 const same = (a, x, y) => a[0] === x && a[1] === y;
@@ -675,11 +769,14 @@ function clearCell(x, y) {
   edit.goals = edit.goals.filter(g => !same(g, x, y));
 }
 function applyTool(x, y) {
+  // placing a round cube on the same round cube flips its turning direction
+  const old = edit.cubes.find(c => same(c, x, y)); const prevSpin = old && old[3] && tool === 'r' + old[2] ? old[3] : 0;
   if (tool === 'goal' && !edit.goals.some(g => same(g, x, y)) && edit.goals.length >= MAX_GOALS) {
     toast(`ゴールは${MAX_GOALS}つまでです`); return;
   }
   clearCell(x, y);
   if (tool[0] === 'c') edit.cubes.push([x, y, +tool[1]]);
+  else if (tool[0] === 'r') edit.cubes.push([x, y, +tool[1], prevSpin === 1 ? 2 : 1]);
   else if (tool === 'wall') edit.walls.push([x, y]);
   else if (tool === 'goal') edit.goals.push([x, y]);
   save('pivity.testroom.v2', edit); renderEdit();
@@ -728,23 +825,25 @@ $('#modePlay').onclick = tryPlay;
 $('#playBtn').onclick = tryPlay;
 $('#clearAll').onclick = () => { edit = { cubes: [], walls: [], goals: [] }; save('pivity.testroom.v2', edit); renderEdit(); };
 
-/* stage code: 81 chars, row by row.  . empty  # wall  G goal  ^ > v < cubes */
+/* stage code: 81 chars, row by row.  . empty  # wall  G goal  ^ > v < cubes  u r d l round (clockwise)  U R D L round (counter-clockwise) */
 function encodeCode(lv) {
   const g = Array(81).fill('.');
   for (const [x, y] of lv.walls) g[y * 9 + x] = '#';
   for (const [x, y] of lv.goals) g[y * 9 + x] = 'G';
-  for (const [x, y, d] of lv.cubes) g[y * 9 + x] = '^>v<'[d];
+  for (const [x, y, d, r] of lv.cubes) g[y * 9 + x] = (r === 2 ? 'URDL' : r ? 'urdl' : '^>v<')[d];
   let s = 'PIVITY:'; for (let r = 0; r < 9; r++) s += g.slice(r * 9, r * 9 + 9).join('') + (r < 8 ? '/' : '');
   return s;
 }
 function decodeCode(str) {
   const body = str.trim().replace(/^PIVITY:/i, '').replace(/[\/\s]/g, '');
-  if (body.length !== 81 || /[^.#G^>v<]/.test(body)) return null;
+  if (body.length !== 81 || /[^.#G^>v<urdlURDL]/.test(body)) return null;
   const lv = { cubes: [], walls: [], goals: [] };
   for (let i = 0; i < 81; i++) {
     const ch = body[i], x = i % 9, y = (i / 9) | 0;
     if (ch === '#') lv.walls.push([x, y]);
     else if (ch === 'G') lv.goals.push([x, y]);
+    else if ('urdl'.includes(ch)) lv.cubes.push([x, y, 'urdl'.indexOf(ch), 1]);
+    else if ('URDL'.includes(ch)) lv.cubes.push([x, y, 'URDL'.indexOf(ch), 2]);
     else if (ch !== '.') lv.cubes.push([x, y, '^>v<'.indexOf(ch)]);
   }
   return lv.goals.length > MAX_GOALS ? null : lv;
@@ -814,6 +913,7 @@ const Snd = (() => {
   const FLICK = [81, 78, 74, 76]; // ↑A5 →F#5 ↓D5 ←E5
   const se = {
     ui() { const t = now(); tone(1320, t, 0.05, { vol: 0.06 }); },
+    spin(ccw) { const t = now(), a = mtof(ccw ? 83 : 79), b = mtof(ccw ? 79 : 83); tone(a, t, 0.08, { vol: 0.12 }); tone(b, t + 0.06, 0.12, { vol: 0.12 }); },
     flick(d) { const t = now(), f = mtof(FLICK[d]); tone(f, t, 0.14, { from: f * 0.7, glide: 0.05, vol: 0.2 }); tone(f * 2, t + 0.02, 0.08, { vol: 0.05 }); noise(t, 0.06, { freq: 3000, q: 0.8, vol: 0.04 }); },
     bump() { const t = now(); tone(110, t, 0.18, { type: 'triangle', from: 240, glide: 0.1, vol: 0.35 }); noise(t, 0.08, { type: 'lowpass', freq: 900, vol: 0.18 }); },
     land() { const t = now(); tone(196, t, 0.07, { type: 'triangle', from: 300, glide: 0.03, vol: 0.12 }); },
@@ -895,6 +995,24 @@ document.addEventListener('pointerdown', e => {
   if (e.target.closest('.btn, .stage, .iconbtn, .tool, .mode button, summary')) Snd.se.ui();
 }, true);
 document.addEventListener('keydown', () => Snd.init(), true);
+
+/* ---------- settings: cube speed (10 steps, 1.0x down to 0.1x) ---------- */
+let speedStep = Math.min(10, Math.max(1, +load('pivity.speed', 10) || 10));
+function applySpeed() {
+  TICK = Math.round(BASE_TICK * 10 / speedStep);
+  document.documentElement.style.setProperty('--tick', TICK + 'ms');
+  $('#speedRange').value = speedStep;
+  $('#speedVal').textContent = (speedStep / 10).toFixed(1) + '倍';
+  $('#speedRange').setAttribute('aria-valuetext', (speedStep / 10).toFixed(1) + '倍');
+  if (timer && timerTick !== TICK) { clearInterval(timer); timer = setInterval(tick, TICK); timerTick = TICK; }
+}
+$('#speedRange').addEventListener('input', e => { speedStep = +e.target.value; save('pivity.speed', speedStep); applySpeed(); });
+$('#setBtn').onclick = () => { const p = $('#settings'); p.hidden = !p.hidden; $('#setBtn').setAttribute('aria-expanded', !p.hidden); };
+$('#setClose').onclick = () => { $('#settings').hidden = true; $('#setBtn').setAttribute('aria-expanded', false); };
+document.addEventListener('pointerdown', e => {
+  if (!$('#settings').hidden && !e.target.closest('#settings, #setBtn')) { $('#settings').hidden = true; $('#setBtn').setAttribute('aria-expanded', false); }
+});
+applySpeed();
 
 /* ---------- logo fit ---------- */
 function fitLogo() {
