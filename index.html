@@ -86,6 +86,13 @@ button{font:inherit;color:inherit}
 @keyframes flip{40%{transform:scaleX(-.85)}}
 .rsw{width:16px;height:16px;border-radius:38%;background:var(--cube);position:relative;box-shadow:inset 0 0 0 2px var(--right)}
 
+.face.slide{border-radius:16%}
+.face.slide svg{width:62%;height:62%}
+.face.slide .rails{position:absolute;inset:14% 16%;border-left:.16em solid currentColor;border-right:.16em solid currentColor;opacity:.45;border-radius:2px}
+.cube .pop.nope{animation:nope .3s ease}
+@keyframes nope{25%{transform:translateX(-6%)}75%{transform:translateX(6%)}}
+.guide[data-axis="1"] .g0,.guide[data-axis="1"] .g2,.guide[data-axis="0"] .g1,.guide[data-axis="0"] .g3{display:none}
+.sldw{width:16px;height:16px;border-radius:16%;background:var(--cube);box-shadow:inset 3px 0 0 -1px var(--up),inset -3px 0 0 -1px var(--up)}
 /* ---------- select ---------- */
 .topbar{width:min(100%,600px);display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px}
 .topbar h2{font-family:var(--display);font-weight:400;font-size:22px;margin:0;flex:1;text-align:center}
@@ -232,7 +239,7 @@ button{font:inherit;color:inherit}
 @media (prefers-reduced-motion:reduce){
   .cube{transition:none}
   .face{transition:none}
-  .cube .pop.bump,.cube .pop.flip,.cube.win .pop,.card,.star.shine .rays,.face .orbit{animation:none}
+  .cube .pop.bump,.cube .pop.flip,.cube .pop.nope,.cube.win .pop,.card,.star.shine .rays,.face .orbit{animation:none}
 }
 </style>
 </head>
@@ -270,7 +277,7 @@ button{font:inherit;color:inherit}
     <span class="spacer"></span>
   </div>
   <div class="rules">
-    <p>キューブは矢印の方向へ、ぶつかるまで進みます。キューブをフリック（PCはドラッグ）すると、その方向へ向きが変わります。2つのキューブが同じマスを狙うと、手前で止まって時計回りに1回転。縁を矢印が回るラウンドキューブは、1マス進むたびに向きが90°ずつ変わります。タップすると回る向き（時計回り／反時計回り）が逆になります（手数には数えません）。黄色いゴールすべてにキューブを止めればクリアです。</p>
+    <p>キューブは矢印の方向へ、ぶつかるまで進みます。キューブをフリック（PCはドラッグ）すると、その方向へ向きが変わります。2つのキューブが同じマスを狙うと、手前で止まって時計回りに1回転。縁を矢印が回るラウンドキューブは、1マス進むたびに向きが90°ずつ変わります。タップすると回る向き（時計回り／反時計回り）が逆になります（手数には数えません）。両矢印のスライドキューブは、矢印の方向へフリックするとぶつかるまで滑ります（手数に数えません）。タップで縦・横を切り替えると1手です。黄色いゴールすべてにキューブを止めればクリアです。</p>
   </div>
   <div class="tally" id="tally"></div>
   <div class="stages" id="stages"></div>
@@ -334,7 +341,11 @@ const ROT_TICKS = 3;
 const GOAL_HOLD = 12;
 function makeState(lv) {
   return {
-    cubes: lv.cubes.map((c, i) => ({ id: i, x: c[0], y: c[1], d: c[2], nd: c[2], rot: 0, hold: 0, round: !!c[3], spin: c[3] === 2 ? 3 : 1, run: 0, park: false, hx: 0, hy: 0 })),
+    cubes: lv.cubes.map((c, i) => {
+      const t = c[3] || 0, slide = t === 3, d = slide ? c[2] % 2 : c[2];
+      // t: 0 normal, 1/2 round (clockwise / counter-clockwise), 3 slide (d: 0 = vertical ↕, 1 = horizontal ↔)
+      return { id: i, x: c[0], y: c[1], d, nd: d, rot: 0, hold: 0, round: t === 1 || t === 2, spin: t === 2 ? 3 : 1, slide, m: -1, run: 0, park: false, hx: 0, hy: 0 };
+    }),
     walls: new Set(lv.walls.map(w => w[1] * N + w[0])),
     goals: (lv.goals || []).map(g => g.slice()),
     tick: 0
@@ -343,17 +354,18 @@ function makeState(lv) {
 function stepState(s) {
   const ev = { moved: [], collided: [], rotDone: [], turned: [], parked: [] };
   for (const c of s.cubes) {
-    if (c.rot > 0 && --c.rot === 0) { c.d = c.nd; ev.rotDone.push(c); }
+    if (c.rot > 0 && --c.rot === 0) { c.d = c.nd; if (c.slide) c.m = -1; ev.rotDone.push(c); }
   }
   const occ = new Set();
   for (const c of s.cubes) occ.add(c.y * N + c.x);
   const want = new Map();
   for (const c of s.cubes) {
     if (c.rot > 0 || c.park) continue;
-    const nx = c.x + DX[c.d], ny = c.y + DY[c.d];
-    if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+    if (c.slide && c.m < 0) continue;                 // slide cubes only move when slid
+    const dir = c.slide ? c.m : c.d;
+    const nx = c.x + DX[dir], ny = c.y + DY[dir];
     const k = ny * N + nx;
-    if (s.walls.has(k) || occ.has(k)) continue;
+    if (nx < 0 || ny < 0 || nx >= N || ny >= N || s.walls.has(k) || occ.has(k)) { if (c.slide) c.m = -1; continue; }
     if (!want.has(k)) want.set(k, []);
     want.get(k).push(c);
   }
@@ -368,7 +380,7 @@ function stepState(s) {
         if (c.x === c.hx && c.y === c.hy) { c.park = true; ev.parked.push(c); }   // back where it started: stop instead of looping
       }
     }
-    else if (!s.noRot) for (const c of arr) { c.rot = ROT_TICKS; c.nd = (c.d + 1) % 4; ev.collided.push(c); }
+    else if (!s.noRot) for (const c of arr) { c.rot = ROT_TICKS; c.nd = c.slide ? c.d ^ 1 : (c.d + 1) % 4; ev.collided.push(c); }
   }
   s.tick++;
   const stable = ev.moved.length === 0 && ev.collided.length === 0 && s.cubes.every(c => c.rot === 0);
@@ -387,15 +399,25 @@ function stepState(s) {
 }
 // flick: set cube's next direction. returns true if it counts as a move
 function flickCube(c, d) {
+  if (c.slide) return false;
   if (c.rot > 0) { if (c.nd === d) return false; c.nd = d; return true; }
   if (c.d === d) return false;
   c.nd = d; c.rot = ROT_TICKS; c.park = false; return true;
 }
+// slide cubes: slide along the arrow axis (free), or switch the axis (costs a move)
+function canSlide(s, c, dir) {
+  if (!c.slide || c.rot > 0 || c.m >= 0 || dir % 2 !== c.d) return false;
+  const nx = c.x + DX[dir], ny = c.y + DY[dir];
+  if (nx < 0 || ny < 0 || nx >= N || ny >= N || s.walls.has(ny * N + nx)) return false;
+  return !s.cubes.some(o => o.x === nx && o.y === ny);
+}
+function slideCube(s, c, dir) { if (!canSlide(s, c, dir)) return false; c.m = dir; return true; }
+function switchAxis(c) { if (!c.slide || c.rot > 0 || c.m >= 0) return false; c.d ^= 1; c.nd = c.d; return true; }
 // round cubes: flip the turning direction (free action, not a move)
 function toggleSpin(c) { if (!c.round) return false; c.spin = c.spin === 1 ? 3 : 1; return true; }
-if (typeof module !== 'undefined') module.exports = { N, DX, DY, ROT_TICKS, makeState, stepState, flickCube, toggleSpin };
+if (typeof module !== 'undefined') module.exports = { N, DX, DY, ROT_TICKS, makeState, stepState, flickCube, toggleSpin, canSlide, slideCube, switchAxis };
 
-const LEVELS = [{"name": "はじめの一手", "hint": "キューブをフリック（PCはドラッグ）すると、その方向へ向きが変わります。", "par": 1, "req": 1, "cubes": [[8, 4, 1]], "walls": [], "goals": [[8, 8]]}, {"name": "曲がり角", "hint": "向きが変わり終わると、すぐに矢印の方向へ進みます。", "par": 2, "req": 1, "cubes": [[0, 0, 0]], "walls": [[5, 0]], "goals": [[4, 8]]}, {"name": "寄り道", "hint": "2つのキューブが同じマスを狙うと、手前で止まって時計回りに1回転します。", "par": 2, "req": 2, "cubes": [[5, 6, 0], [4, 6, 1], [5, 5, 2]], "walls": [[3, 5], [5, 7]], "goals": [[4, 7]]}, {"name": "通せんぼ", "hint": "壁やほかのキューブにぶつかると止まります。", "par": 2, "req": 1, "cubes": [[2, 8, 2], [1, 4, 2], [0, 2, 3]], "walls": [[1, 5], [1, 0], [0, 4], [4, 5], [3, 3]], "goals": [[0, 5]]}, {"name": "すれ違い", "hint": "", "par": 2, "req": 1, "cubes": [[1, 8, 2], [0, 5, 3], [8, 1, 1]], "walls": [[4, 8], [3, 3], [0, 6], [5, 7], [7, 4], [7, 6]], "goals": [[3, 4]]}, {"name": "段差", "hint": "", "par": 2, "req": 1, "cubes": [[3, 8, 2], [0, 6, 3], [8, 7, 1]], "walls": [[5, 3], [1, 3], [6, 4], [7, 5], [3, 2], [1, 1]], "goals": [[4, 3]]}, {"name": "抜け道", "hint": "", "par": 3, "req": 2, "cubes": [[4, 0, 0], [0, 5, 3], [1, 8, 2]], "walls": [[2, 4], [0, 6], [0, 8], [3, 7], [4, 7], [4, 8]], "goals": [[8, 4]]}, {"name": "行き止まり", "hint": "", "par": 3, "req": 2, "cubes": [[8, 4, 1], [0, 2, 3], [7, 0, 0], [8, 3, 1]], "walls": [[2, 8], [2, 3], [6, 5], [0, 6], [8, 1], [0, 7]], "goals": [[1, 7]]}, {"name": "迂回路", "hint": "", "par": 3, "req": 2, "cubes": [[0, 3, 3], [5, 8, 2], [6, 8, 2], [4, 2, 0]], "walls": [[5, 2], [8, 6], [3, 6], [8, 4], [7, 5], [4, 1], [8, 1]], "goals": [[5, 0]]}, {"name": "回り道", "hint": "", "par": 4, "req": 2, "cubes": [[2, 0, 0], [8, 8, 1], [8, 3, 1], [8, 4, 1]], "walls": [[7, 4], [7, 0], [5, 0], [5, 2], [4, 8], [5, 3]], "goals": [[5, 7]]}, {"name": "右の塔", "hint": "", "par": 4, "req": 2, "cubes": [[7, 3, 0], [7, 2, 2], [6, 3, 1], [3, 2, 2]], "walls": [[6, 7], [6, 6], [1, 3], [5, 1], [3, 3], [7, 6], [7, 8]], "goals": [[8, 6]]}, {"name": "落とし穴", "hint": "", "par": 6, "req": 2, "cubes": [[3, 4, 3], [3, 3, 2], [2, 4, 1], [2, 7, 2]], "walls": [[2, 8], [4, 3], [8, 1], [3, 2], [1, 7], [5, 3], [7, 4]], "goals": [[7, 6]]}, {"name": "見張り", "hint": "", "par": 7, "req": 3, "cubes": [[3, 7, 2], [2, 7, 1], [3, 8, 0], [0, 5, 3]], "walls": [[6, 4], [0, 0], [6, 8], [1, 3], [5, 0], [3, 4], [2, 2]], "goals": [[5, 4]]}, {"name": "長い坂", "hint": "", "par": 8, "req": 3, "cubes": [[7, 5, 0], [7, 4, 2], [6, 5, 1], [3, 0, 0]], "walls": [[7, 6], [6, 3], [8, 4], [1, 3], [8, 3], [4, 1], [6, 1]], "goals": [[5, 6]]}, {"name": "総動員", "hint": "", "par": 9, "req": 4, "cubes": [[1, 6, 3], [1, 7, 0], [0, 6, 1], [1, 3, 2]], "walls": [[5, 2], [2, 6], [1, 4], [2, 0], [6, 4], [3, 5], [8, 1], [3, 8]], "goals": [[4, 6]]}, {"name": "ふたつの印", "hint": "ゴールが2つ。すべてのゴールにキューブを止めるとクリアです。", "par": 3, "req": 3, "cubes": [[1, 7, 3], [0, 4, 3], [0, 5, 2]], "walls": [[0, 6], [3, 0], [5, 6], [0, 7], [4, 1], [8, 6]], "goals": [[1, 0], [0, 1]]}, {"name": "並走", "hint": "", "par": 4, "req": 2, "cubes": [[4, 8, 3], [3, 8, 1], [3, 0, 0], [8, 6, 1], [1, 3, 3]], "walls": [[6, 2], [5, 5], [1, 7], [6, 6], [1, 6], [3, 4], [0, 3]], "goals": [[1, 2], [8, 8]]}, {"name": "待ち合わせ", "hint": "", "par": 4, "req": 2, "cubes": [[5, 4, 2], [2, 6, 2], [6, 8, 2], [2, 5, 2], [4, 0, 0]], "walls": [[0, 0], [6, 1], [7, 4], [3, 1], [3, 7], [5, 5], [2, 7], [4, 3]], "goals": [[1, 0], [2, 4]]}, {"name": "交差点", "hint": "", "par": 4, "req": 3, "cubes": [[0, 0, 0], [8, 2, 1], [1, 0, 0], [8, 4, 1]], "walls": [[0, 7], [1, 7], [1, 6], [7, 1], [5, 1], [5, 5], [0, 4]], "goals": [[7, 0], [6, 8]]}, {"name": "二重扉", "hint": "", "par": 5, "req": 2, "cubes": [[6, 0, 0], [8, 2, 1], [3, 3, 3], [7, 6, 1], [0, 1, 3]], "walls": [[8, 6], [0, 5], [4, 2], [7, 5], [1, 6], [2, 3], [0, 6]], "goals": [[1, 1], [5, 8]]}, {"name": "向かい風", "hint": "", "par": 5, "req": 2, "cubes": [[8, 6, 0], [6, 8, 2], [5, 8, 1], [0, 0, 3], [4, 6, 2]], "walls": [[5, 3], [3, 0], [5, 7], [4, 7], [8, 5], [8, 2], [7, 3], [1, 5]], "goals": [[2, 5], [7, 8]]}, {"name": "挟み撃ち", "hint": "", "par": 5, "req": 2, "cubes": [[5, 6, 3], [0, 3, 3], [3, 6, 1], [4, 1, 0], [0, 4, 3]], "walls": [[4, 0], [2, 8], [5, 2], [7, 1], [2, 2], [5, 8], [4, 6]], "goals": [[8, 0], [7, 2]]}, {"name": "積み木", "hint": "", "par": 5, "req": 3, "cubes": [[0, 5, 3], [2, 2, 0], [4, 3, 2], [3, 1, 3], [1, 1, 2], [5, 2, 3]], "walls": [[4, 4], [4, 2], [5, 8], [5, 3], [1, 2], [0, 6], [2, 1], [4, 5]], "goals": [[0, 0], [8, 3]]}, {"name": "遠回り", "hint": "", "par": 6, "req": 2, "cubes": [[1, 3, 2], [7, 0, 0], [6, 6, 2], [4, 0, 0], [2, 5, 0]], "walls": [[2, 4], [8, 0], [2, 7], [5, 0], [1, 4], [6, 7], [0, 8], [8, 8]], "goals": [[3, 5], [3, 8]]}, {"name": "階段", "hint": "", "par": 6, "req": 3, "cubes": [[8, 5, 1], [8, 7, 1], [3, 8, 2], [6, 8, 2], [0, 0, 0]], "walls": [[3, 6], [2, 5], [2, 8], [1, 8], [1, 1], [1, 7], [6, 2], [8, 8]], "goals": [[1, 0], [7, 1]]}, {"name": "押し出し", "hint": "", "par": 6, "req": 3, "cubes": [[2, 5, 3], [1, 5, 1], [2, 6, 0], [7, 2, 0]], "walls": [[3, 1], [7, 1], [3, 4], [0, 6], [3, 6], [8, 1], [1, 0]], "goals": [[1, 3], [1, 8]]}, {"name": "渋滞", "hint": "", "par": 7, "req": 3, "cubes": [[1, 0, 0], [0, 6, 2], [8, 2, 1], [3, 8, 2]], "walls": [[7, 3], [1, 8], [8, 4], [0, 7], [5, 8], [5, 4], [1, 7]], "goals": [[4, 7], [2, 8]]}, {"name": "連鎖", "hint": "", "par": 7, "req": 4, "cubes": [[5, 2, 3], [4, 2, 1], [5, 3, 0], [8, 4, 1]], "walls": [[8, 2], [0, 7], [6, 1], [2, 2], [5, 7], [4, 0], [7, 5]], "goals": [[7, 0], [7, 7]]}, {"name": "背中合わせ", "hint": "", "par": 8, "req": 3, "cubes": [[7, 5, 1], [7, 4, 2], [8, 5, 3], [8, 0, 1]], "walls": [[7, 1], [6, 8], [0, 3], [4, 6], [7, 2], [0, 7], [3, 6]], "goals": [[3, 1], [0, 4]]}, {"name": "双子の塔", "hint": "", "par": 8, "req": 4, "cubes": [[1, 7, 2], [0, 7, 1], [1, 8, 0], [0, 8, 0]], "walls": [[3, 6], [5, 1], [2, 4], [0, 1], [0, 4], [0, 5], [7, 5]], "goals": [[6, 2], [7, 6]]}, {"name": "みっつの印", "hint": "ゴールが3つになりました。", "par": 4, "req": 2, "cubes": [[8, 6, 1], [5, 2, 2], [7, 8, 2], [6, 1, 0], [6, 0, 0]], "walls": [[1, 0], [5, 3], [4, 5], [4, 0], [3, 4], [5, 4], [2, 6], [0, 2]], "goals": [[5, 0], [8, 1], [7, 7]]}, {"name": "三叉路", "hint": "", "par": 4, "req": 3, "cubes": [[5, 4, 1], [8, 8, 2], [5, 0, 0], [2, 5, 3], [0, 4, 3]], "walls": [[7, 4], [4, 2], [2, 0], [1, 5], [6, 4], [2, 8], [0, 0]], "goals": [[3, 0], [6, 0], [8, 1]]}, {"name": "合流", "hint": "", "par": 5, "req": 3, "cubes": [[6, 0, 0], [4, 0, 1], [5, 8, 1], [8, 0, 0], [5, 5, 2]], "walls": [[5, 6], [5, 0], [4, 5], [0, 4], [4, 6], [6, 8], [3, 5], [7, 2]], "goals": [[7, 0], [8, 3], [8, 4]]}, {"name": "仕分け", "hint": "", "par": 5, "req": 3, "cubes": [[3, 7, 2], [7, 3, 0], [3, 8, 2], [8, 6, 1], [8, 0, 1], [3, 4, 3]], "walls": [[8, 1], [0, 7], [0, 4], [8, 7], [7, 2], [1, 1], [2, 4], [6, 1]], "goals": [[8, 3], [3, 5], [4, 5]]}, {"name": "玉突き", "hint": "", "par": 5, "req": 3, "cubes": [[5, 7, 2], [4, 1, 0], [4, 3, 3], [3, 3, 1], [8, 0, 1], [2, 0, 1]], "walls": [[4, 0], [7, 4], [3, 8], [6, 5], [7, 2], [2, 4], [1, 8], [5, 8], [3, 0]], "goals": [[7, 0], [4, 2], [8, 2]]}, {"name": "渦", "hint": "", "par": 6, "req": 3, "cubes": [[1, 0, 3], [8, 4, 1], [0, 0, 0], [5, 6, 1], [1, 8, 2], [8, 2, 1]], "walls": [[3, 5], [5, 3], [4, 2], [0, 5], [0, 3], [2, 1], [6, 1], [6, 6], [2, 4]], "goals": [[8, 1], [8, 3], [7, 4]]}, {"name": "迷い道", "hint": "", "par": 6, "req": 4, "cubes": [[1, 1, 3], [2, 0, 0], [8, 6, 1], [0, 1, 3], [0, 5, 0], [5, 0, 0]], "walls": [[0, 6], [6, 5], [0, 4], [2, 8], [6, 3], [8, 8], [8, 4], [1, 6]], "goals": [[3, 0], [8, 0], [5, 4]]}, {"name": "城壁", "hint": "", "par": 7, "req": 3, "cubes": [[4, 6, 2], [3, 2, 2], [6, 6, 2], [4, 7, 3], [7, 0, 0]], "walls": [[6, 7], [5, 0], [4, 8], [3, 7], [3, 3], [3, 5], [5, 2], [7, 1]], "goals": [[3, 0], [6, 5], [2, 8]]}, {"name": "分岐点", "hint": "", "par": 7, "req": 3, "cubes": [[0, 2, 3], [8, 0, 0], [0, 0, 3], [3, 7, 2], [1, 4, 0]], "walls": [[0, 6], [3, 8], [1, 3], [1, 7], [1, 8], [7, 7], [2, 4], [5, 4], [4, 3]], "goals": [[1, 0], [1, 1], [8, 1]]}, {"name": "折り返し", "hint": "", "par": 7, "req": 3, "cubes": [[0, 5, 3], [8, 8, 1], [4, 8, 2], [6, 8, 2], [0, 2, 3]], "walls": [[5, 0], [8, 5], [2, 8], [5, 1], [0, 0], [8, 0], [0, 6], [4, 4], [5, 4], [8, 4]], "goals": [[6, 1], [1, 2], [8, 6]]}, {"name": "綱渡り", "hint": "", "par": 7, "req": 3, "cubes": [[4, 2, 3], [3, 2, 1], [4, 3, 0], [2, 2, 1]], "walls": [[8, 3], [3, 6], [3, 4], [2, 5], [6, 1], [1, 1], [1, 7], [0, 3]], "goals": [[2, 0], [6, 3], [6, 8]]}, {"name": "大移動", "hint": "", "par": 8, "req": 3, "cubes": [[1, 1, 2], [0, 1, 1], [1, 2, 0], [2, 8, 2]], "walls": [[1, 3], [6, 5], [0, 7], [5, 3], [5, 8], [3, 2], [0, 6], [6, 7]], "goals": [[5, 0], [3, 1], [4, 8]]}, {"name": "隙間", "hint": "", "par": 8, "req": 3, "cubes": [[8, 2, 1], [0, 1, 3], [8, 3, 1], [0, 5, 3]], "walls": [[8, 7], [6, 7], [2, 6], [2, 8], [7, 0], [5, 5], [4, 1], [6, 5]], "goals": [[4, 2], [1, 5], [8, 8]]}, {"name": "最後の壁", "hint": "", "par": 8, "req": 4, "cubes": [[0, 4, 3], [7, 4, 0], [0, 3, 3], [3, 1, 0]], "walls": [[4, 8], [2, 8], [3, 0], [3, 7], [7, 3], [6, 7], [8, 8], [5, 5]], "goals": [[0, 5], [8, 5], [2, 7]]}, {"name": "ピヴィティ", "hint": "", "par": 9, "req": 4, "cubes": [[6, 4, 3], [7, 4, 3], [6, 5, 0], [0, 7, 3]], "walls": [[5, 4], [2, 4], [8, 1], [0, 4], [1, 2], [5, 1], [4, 1], [0, 1], [0, 8]], "goals": [[2, 2], [0, 6], [4, 8]]}, {"name": "回転木馬", "hint": "縁を矢印が回るラウンドキューブは、1マス進むたびに向きが90°変わります。", "cubes": [[0, 4, 2, 1]], "walls": [[2, 2], [6, 1], [4, 2], [0, 5], [5, 8]], "goals": [[1, 5]], "par": 1, "req": 1}, {"name": "つむじ風", "hint": "ラウンドキューブは、止まるまで曲がり続けます。", "cubes": [[2, 6, 0, 1], [8, 0, 0]], "walls": [[6, 8], [1, 2], [2, 5], [0, 8], [2, 8], [8, 6]], "goals": [[2, 4]], "par": 2, "req": 1}, {"name": "渦巻き", "hint": "", "cubes": [[1, 5, 0, 1], [2, 5, 3]], "walls": [[1, 4], [7, 1], [0, 1], [1, 7], [7, 7], [7, 3]], "goals": [[1, 8]], "par": 3, "req": 1}, {"name": "風見鶏", "hint": "ラウンドキューブをタップすると、回る向きが逆になります。手数には数えません。", "cubes": [[4, 1, 0, 1], [2, 3, 1]], "walls": [[5, 7], [2, 2], [4, 0], [3, 3], [0, 8], [1, 0]], "goals": [[7, 0]], "par": 3, "req": 1}, {"name": "糸巻き", "hint": "", "cubes": [[0, 4, 2, 1], [1, 4, 3]], "walls": [[0, 5], [4, 3], [8, 6], [6, 1], [6, 6], [2, 2]], "goals": [[1, 2]], "par": 3, "req": 2}, {"name": "舞台", "hint": "ゴール2つ。すべてのゴールにキューブを止めるとクリアです。", "cubes": [[5, 5, 0, 1], [4, 5, 1], [0, 4, 3]], "walls": [[7, 7], [0, 8], [5, 1], [5, 4], [5, 3], [2, 7], [6, 6], [4, 7]], "goals": [[8, 3], [8, 5]], "par": 5, "req": 1}, {"name": "振り子", "hint": "", "cubes": [[8, 8, 3, 1], [8, 6, 1], [3, 8, 2]], "walls": [[7, 7], [2, 1], [4, 0], [7, 8], [5, 1], [3, 3], [4, 3], [5, 4]], "goals": [[8, 0], [8, 4]], "par": 5, "req": 2}, {"name": "歯車", "hint": "", "cubes": [[0, 6, 1, 1], [5, 8, 2], [2, 6, 3]], "walls": [[1, 6], [5, 1], [2, 4], [8, 6], [7, 8], [5, 5], [7, 6], [1, 4]], "goals": [[2, 5], [4, 6]], "par": 4, "req": 3}, {"name": "螺旋", "hint": "", "cubes": [[1, 8, 2], [0, 3, 3], [0, 8, 2], [8, 1, 0, 1]], "walls": [[5, 6], [4, 8], [8, 0], [1, 0], [6, 0], [4, 0], [8, 2], [2, 2]], "goals": [[5, 0], [7, 0]], "par": 6, "req": 2}, {"name": "旋回", "hint": "", "cubes": [[6, 5, 2], [0, 1, 3], [7, 0, 0], [6, 6, 1, 1]], "walls": [[8, 2], [2, 5], [2, 6], [5, 4], [5, 6], [2, 8], [3, 5], [7, 6]], "goals": [[1, 1], [7, 4]], "par": 6, "req": 3}, {"name": "輪舞", "hint": "ゴールが3つになりました。", "cubes": [[7, 3, 1], [0, 2, 3], [2, 5, 2], [8, 2, 2, 1]], "walls": [[2, 7], [0, 5], [8, 1], [2, 6], [1, 6], [0, 4], [3, 4], [8, 3], [6, 6]], "goals": [[0, 1], [6, 2], [6, 3]], "par": 6, "req": 3}, {"name": "竜巻", "hint": "", "cubes": [[7, 1, 2], [7, 2, 0], [8, 1, 3], [6, 6, 1, 1]], "walls": [[2, 5], [4, 5], [3, 0], [1, 4], [3, 3], [6, 2], [7, 6], [5, 7], [1, 2]], "goals": [[8, 0], [6, 3], [7, 8]], "par": 7, "req": 3}, {"name": "大車輪", "hint": "", "cubes": [[1, 3, 3], [0, 2, 3], [7, 0, 0], [4, 0, 3, 1]], "walls": [[0, 5], [1, 7], [0, 3], [3, 0], [0, 4], [6, 6], [4, 5], [0, 1], [7, 6]], "goals": [[1, 0], [1, 1], [5, 6]], "par": 8, "req": 3}, {"name": "公転", "hint": "", "cubes": [[5, 5, 0], [4, 7, 2], [6, 8, 1], [1, 8, 0, 1]], "walls": [[3, 6], [3, 2], [8, 7], [4, 8], [1, 7], [3, 8], [7, 8], [5, 4], [2, 7]], "goals": [[8, 0], [2, 4], [1, 6]], "par": 8, "req": 3}, {"name": "天球", "hint": "", "cubes": [[1, 7, 1], [1, 6, 2], [2, 7, 3], [1, 8, 3, 1]], "walls": [[3, 7], [0, 6], [0, 7], [2, 8], [7, 5], [0, 0], [8, 3], [0, 8], [5, 6]], "goals": [[0, 4], [0, 5], [2, 5]], "par": 8, "req": 4}];
+const LEVELS = [{"name": "はじめの一手", "hint": "キューブをフリック（PCはドラッグ）すると、その方向へ向きが変わります。", "par": 1, "req": 1, "cubes": [[8, 4, 1]], "walls": [], "goals": [[8, 8]]}, {"name": "曲がり角", "hint": "向きが変わり終わると、すぐに矢印の方向へ進みます。", "par": 2, "req": 1, "cubes": [[0, 0, 0]], "walls": [[5, 0]], "goals": [[4, 8]]}, {"name": "寄り道", "hint": "2つのキューブが同じマスを狙うと、手前で止まって時計回りに1回転します。", "par": 2, "req": 2, "cubes": [[5, 6, 0], [4, 6, 1], [5, 5, 2]], "walls": [[3, 5], [5, 7]], "goals": [[4, 7]]}, {"name": "通せんぼ", "hint": "壁やほかのキューブにぶつかると止まります。", "par": 2, "req": 1, "cubes": [[2, 8, 2], [1, 4, 2], [0, 2, 3]], "walls": [[1, 5], [1, 0], [0, 4], [4, 5], [3, 3]], "goals": [[0, 5]]}, {"name": "すれ違い", "hint": "", "par": 2, "req": 1, "cubes": [[1, 8, 2], [0, 5, 3], [8, 1, 1]], "walls": [[4, 8], [3, 3], [0, 6], [5, 7], [7, 4], [7, 6]], "goals": [[3, 4]]}, {"name": "段差", "hint": "", "par": 2, "req": 1, "cubes": [[3, 8, 2], [0, 6, 3], [8, 7, 1]], "walls": [[5, 3], [1, 3], [6, 4], [7, 5], [3, 2], [1, 1]], "goals": [[4, 3]]}, {"name": "抜け道", "hint": "", "par": 3, "req": 2, "cubes": [[4, 0, 0], [0, 5, 3], [1, 8, 2]], "walls": [[2, 4], [0, 6], [0, 8], [3, 7], [4, 7], [4, 8]], "goals": [[8, 4]]}, {"name": "行き止まり", "hint": "", "par": 3, "req": 2, "cubes": [[8, 4, 1], [0, 2, 3], [7, 0, 0], [8, 3, 1]], "walls": [[2, 8], [2, 3], [6, 5], [0, 6], [8, 1], [0, 7]], "goals": [[1, 7]]}, {"name": "迂回路", "hint": "", "par": 3, "req": 2, "cubes": [[0, 3, 3], [5, 8, 2], [6, 8, 2], [4, 2, 0]], "walls": [[5, 2], [8, 6], [3, 6], [8, 4], [7, 5], [4, 1], [8, 1]], "goals": [[5, 0]]}, {"name": "回り道", "hint": "", "par": 4, "req": 2, "cubes": [[2, 0, 0], [8, 8, 1], [8, 3, 1], [8, 4, 1]], "walls": [[7, 4], [7, 0], [5, 0], [5, 2], [4, 8], [5, 3]], "goals": [[5, 7]]}, {"name": "右の塔", "hint": "", "par": 4, "req": 2, "cubes": [[7, 3, 0], [7, 2, 2], [6, 3, 1], [3, 2, 2]], "walls": [[6, 7], [6, 6], [1, 3], [5, 1], [3, 3], [7, 6], [7, 8]], "goals": [[8, 6]]}, {"name": "落とし穴", "hint": "", "par": 6, "req": 2, "cubes": [[3, 4, 3], [3, 3, 2], [2, 4, 1], [2, 7, 2]], "walls": [[2, 8], [4, 3], [8, 1], [3, 2], [1, 7], [5, 3], [7, 4]], "goals": [[7, 6]]}, {"name": "見張り", "hint": "", "par": 7, "req": 3, "cubes": [[3, 7, 2], [2, 7, 1], [3, 8, 0], [0, 5, 3]], "walls": [[6, 4], [0, 0], [6, 8], [1, 3], [5, 0], [3, 4], [2, 2]], "goals": [[5, 4]]}, {"name": "長い坂", "hint": "", "par": 8, "req": 3, "cubes": [[7, 5, 0], [7, 4, 2], [6, 5, 1], [3, 0, 0]], "walls": [[7, 6], [6, 3], [8, 4], [1, 3], [8, 3], [4, 1], [6, 1]], "goals": [[5, 6]]}, {"name": "総動員", "hint": "", "par": 9, "req": 4, "cubes": [[1, 6, 3], [1, 7, 0], [0, 6, 1], [1, 3, 2]], "walls": [[5, 2], [2, 6], [1, 4], [2, 0], [6, 4], [3, 5], [8, 1], [3, 8]], "goals": [[4, 6]]}, {"name": "ふたつの印", "hint": "ゴールが2つ。すべてのゴールにキューブを止めるとクリアです。", "par": 3, "req": 3, "cubes": [[1, 7, 3], [0, 4, 3], [0, 5, 2]], "walls": [[0, 6], [3, 0], [5, 6], [0, 7], [4, 1], [8, 6]], "goals": [[1, 0], [0, 1]]}, {"name": "並走", "hint": "", "par": 4, "req": 2, "cubes": [[4, 8, 3], [3, 8, 1], [3, 0, 0], [8, 6, 1], [1, 3, 3]], "walls": [[6, 2], [5, 5], [1, 7], [6, 6], [1, 6], [3, 4], [0, 3]], "goals": [[1, 2], [8, 8]]}, {"name": "待ち合わせ", "hint": "", "par": 4, "req": 2, "cubes": [[5, 4, 2], [2, 6, 2], [6, 8, 2], [2, 5, 2], [4, 0, 0]], "walls": [[0, 0], [6, 1], [7, 4], [3, 1], [3, 7], [5, 5], [2, 7], [4, 3]], "goals": [[1, 0], [2, 4]]}, {"name": "交差点", "hint": "", "par": 4, "req": 3, "cubes": [[0, 0, 0], [8, 2, 1], [1, 0, 0], [8, 4, 1]], "walls": [[0, 7], [1, 7], [1, 6], [7, 1], [5, 1], [5, 5], [0, 4]], "goals": [[7, 0], [6, 8]]}, {"name": "二重扉", "hint": "", "par": 5, "req": 2, "cubes": [[6, 0, 0], [8, 2, 1], [3, 3, 3], [7, 6, 1], [0, 1, 3]], "walls": [[8, 6], [0, 5], [4, 2], [7, 5], [1, 6], [2, 3], [0, 6]], "goals": [[1, 1], [5, 8]]}, {"name": "向かい風", "hint": "", "par": 5, "req": 2, "cubes": [[8, 6, 0], [6, 8, 2], [5, 8, 1], [0, 0, 3], [4, 6, 2]], "walls": [[5, 3], [3, 0], [5, 7], [4, 7], [8, 5], [8, 2], [7, 3], [1, 5]], "goals": [[2, 5], [7, 8]]}, {"name": "挟み撃ち", "hint": "", "par": 5, "req": 2, "cubes": [[5, 6, 3], [0, 3, 3], [3, 6, 1], [4, 1, 0], [0, 4, 3]], "walls": [[4, 0], [2, 8], [5, 2], [7, 1], [2, 2], [5, 8], [4, 6]], "goals": [[8, 0], [7, 2]]}, {"name": "積み木", "hint": "", "par": 5, "req": 3, "cubes": [[0, 5, 3], [2, 2, 0], [4, 3, 2], [3, 1, 3], [1, 1, 2], [5, 2, 3]], "walls": [[4, 4], [4, 2], [5, 8], [5, 3], [1, 2], [0, 6], [2, 1], [4, 5]], "goals": [[0, 0], [8, 3]]}, {"name": "遠回り", "hint": "", "par": 6, "req": 2, "cubes": [[1, 3, 2], [7, 0, 0], [6, 6, 2], [4, 0, 0], [2, 5, 0]], "walls": [[2, 4], [8, 0], [2, 7], [5, 0], [1, 4], [6, 7], [0, 8], [8, 8]], "goals": [[3, 5], [3, 8]]}, {"name": "階段", "hint": "", "par": 6, "req": 3, "cubes": [[8, 5, 1], [8, 7, 1], [3, 8, 2], [6, 8, 2], [0, 0, 0]], "walls": [[3, 6], [2, 5], [2, 8], [1, 8], [1, 1], [1, 7], [6, 2], [8, 8]], "goals": [[1, 0], [7, 1]]}, {"name": "押し出し", "hint": "", "par": 6, "req": 3, "cubes": [[2, 5, 3], [1, 5, 1], [2, 6, 0], [7, 2, 0]], "walls": [[3, 1], [7, 1], [3, 4], [0, 6], [3, 6], [8, 1], [1, 0]], "goals": [[1, 3], [1, 8]]}, {"name": "渋滞", "hint": "", "par": 7, "req": 3, "cubes": [[1, 0, 0], [0, 6, 2], [8, 2, 1], [3, 8, 2]], "walls": [[7, 3], [1, 8], [8, 4], [0, 7], [5, 8], [5, 4], [1, 7]], "goals": [[4, 7], [2, 8]]}, {"name": "連鎖", "hint": "", "par": 7, "req": 4, "cubes": [[5, 2, 3], [4, 2, 1], [5, 3, 0], [8, 4, 1]], "walls": [[8, 2], [0, 7], [6, 1], [2, 2], [5, 7], [4, 0], [7, 5]], "goals": [[7, 0], [7, 7]]}, {"name": "背中合わせ", "hint": "", "par": 8, "req": 3, "cubes": [[7, 5, 1], [7, 4, 2], [8, 5, 3], [8, 0, 1]], "walls": [[7, 1], [6, 8], [0, 3], [4, 6], [7, 2], [0, 7], [3, 6]], "goals": [[3, 1], [0, 4]]}, {"name": "双子の塔", "hint": "", "par": 8, "req": 4, "cubes": [[1, 7, 2], [0, 7, 1], [1, 8, 0], [0, 8, 0]], "walls": [[3, 6], [5, 1], [2, 4], [0, 1], [0, 4], [0, 5], [7, 5]], "goals": [[6, 2], [7, 6]]}, {"name": "みっつの印", "hint": "ゴールが3つになりました。", "par": 4, "req": 2, "cubes": [[8, 6, 1], [5, 2, 2], [7, 8, 2], [6, 1, 0], [6, 0, 0]], "walls": [[1, 0], [5, 3], [4, 5], [4, 0], [3, 4], [5, 4], [2, 6], [0, 2]], "goals": [[5, 0], [8, 1], [7, 7]]}, {"name": "三叉路", "hint": "", "par": 4, "req": 3, "cubes": [[5, 4, 1], [8, 8, 2], [5, 0, 0], [2, 5, 3], [0, 4, 3]], "walls": [[7, 4], [4, 2], [2, 0], [1, 5], [6, 4], [2, 8], [0, 0]], "goals": [[3, 0], [6, 0], [8, 1]]}, {"name": "合流", "hint": "", "par": 5, "req": 3, "cubes": [[6, 0, 0], [4, 0, 1], [5, 8, 1], [8, 0, 0], [5, 5, 2]], "walls": [[5, 6], [5, 0], [4, 5], [0, 4], [4, 6], [6, 8], [3, 5], [7, 2]], "goals": [[7, 0], [8, 3], [8, 4]]}, {"name": "仕分け", "hint": "", "par": 5, "req": 3, "cubes": [[3, 7, 2], [7, 3, 0], [3, 8, 2], [8, 6, 1], [8, 0, 1], [3, 4, 3]], "walls": [[8, 1], [0, 7], [0, 4], [8, 7], [7, 2], [1, 1], [2, 4], [6, 1]], "goals": [[8, 3], [3, 5], [4, 5]]}, {"name": "玉突き", "hint": "", "par": 5, "req": 3, "cubes": [[5, 7, 2], [4, 1, 0], [4, 3, 3], [3, 3, 1], [8, 0, 1], [2, 0, 1]], "walls": [[4, 0], [7, 4], [3, 8], [6, 5], [7, 2], [2, 4], [1, 8], [5, 8], [3, 0]], "goals": [[7, 0], [4, 2], [8, 2]]}, {"name": "渦", "hint": "", "par": 6, "req": 3, "cubes": [[1, 0, 3], [8, 4, 1], [0, 0, 0], [5, 6, 1], [1, 8, 2], [8, 2, 1]], "walls": [[3, 5], [5, 3], [4, 2], [0, 5], [0, 3], [2, 1], [6, 1], [6, 6], [2, 4]], "goals": [[8, 1], [8, 3], [7, 4]]}, {"name": "迷い道", "hint": "", "par": 6, "req": 4, "cubes": [[1, 1, 3], [2, 0, 0], [8, 6, 1], [0, 1, 3], [0, 5, 0], [5, 0, 0]], "walls": [[0, 6], [6, 5], [0, 4], [2, 8], [6, 3], [8, 8], [8, 4], [1, 6]], "goals": [[3, 0], [8, 0], [5, 4]]}, {"name": "城壁", "hint": "", "par": 7, "req": 3, "cubes": [[4, 6, 2], [3, 2, 2], [6, 6, 2], [4, 7, 3], [7, 0, 0]], "walls": [[6, 7], [5, 0], [4, 8], [3, 7], [3, 3], [3, 5], [5, 2], [7, 1]], "goals": [[3, 0], [6, 5], [2, 8]]}, {"name": "分岐点", "hint": "", "par": 7, "req": 3, "cubes": [[0, 2, 3], [8, 0, 0], [0, 0, 3], [3, 7, 2], [1, 4, 0]], "walls": [[0, 6], [3, 8], [1, 3], [1, 7], [1, 8], [7, 7], [2, 4], [5, 4], [4, 3]], "goals": [[1, 0], [1, 1], [8, 1]]}, {"name": "折り返し", "hint": "", "par": 7, "req": 3, "cubes": [[0, 5, 3], [8, 8, 1], [4, 8, 2], [6, 8, 2], [0, 2, 3]], "walls": [[5, 0], [8, 5], [2, 8], [5, 1], [0, 0], [8, 0], [0, 6], [4, 4], [5, 4], [8, 4]], "goals": [[6, 1], [1, 2], [8, 6]]}, {"name": "綱渡り", "hint": "", "par": 7, "req": 3, "cubes": [[4, 2, 3], [3, 2, 1], [4, 3, 0], [2, 2, 1]], "walls": [[8, 3], [3, 6], [3, 4], [2, 5], [6, 1], [1, 1], [1, 7], [0, 3]], "goals": [[2, 0], [6, 3], [6, 8]]}, {"name": "大移動", "hint": "", "par": 8, "req": 3, "cubes": [[1, 1, 2], [0, 1, 1], [1, 2, 0], [2, 8, 2]], "walls": [[1, 3], [6, 5], [0, 7], [5, 3], [5, 8], [3, 2], [0, 6], [6, 7]], "goals": [[5, 0], [3, 1], [4, 8]]}, {"name": "隙間", "hint": "", "par": 8, "req": 3, "cubes": [[8, 2, 1], [0, 1, 3], [8, 3, 1], [0, 5, 3]], "walls": [[8, 7], [6, 7], [2, 6], [2, 8], [7, 0], [5, 5], [4, 1], [6, 5]], "goals": [[4, 2], [1, 5], [8, 8]]}, {"name": "最後の壁", "hint": "", "par": 8, "req": 4, "cubes": [[0, 4, 3], [7, 4, 0], [0, 3, 3], [3, 1, 0]], "walls": [[4, 8], [2, 8], [3, 0], [3, 7], [7, 3], [6, 7], [8, 8], [5, 5]], "goals": [[0, 5], [8, 5], [2, 7]]}, {"name": "ピヴィティ", "hint": "", "par": 9, "req": 4, "cubes": [[6, 4, 3], [7, 4, 3], [6, 5, 0], [0, 7, 3]], "walls": [[5, 4], [2, 4], [8, 1], [0, 4], [1, 2], [5, 1], [4, 1], [0, 1], [0, 8]], "goals": [[2, 2], [0, 6], [4, 8]]}, {"name": "回転木馬", "hint": "縁を矢印が回るラウンドキューブは、1マス進むたびに向きが90°変わります。", "cubes": [[0, 4, 2, 1]], "walls": [[2, 2], [6, 1], [4, 2], [0, 5], [5, 8]], "goals": [[1, 5]], "par": 1, "req": 1}, {"name": "つむじ風", "hint": "ラウンドキューブは、止まるまで曲がり続けます。", "cubes": [[2, 6, 0, 1], [8, 0, 0]], "walls": [[6, 8], [1, 2], [2, 5], [0, 8], [2, 8], [8, 6]], "goals": [[2, 4]], "par": 2, "req": 1}, {"name": "渦巻き", "hint": "", "cubes": [[1, 5, 0, 1], [2, 5, 3]], "walls": [[1, 4], [7, 1], [0, 1], [1, 7], [7, 7], [7, 3]], "goals": [[1, 8]], "par": 3, "req": 1}, {"name": "風見鶏", "hint": "ラウンドキューブをタップすると、回る向きが逆になります。手数には数えません。", "cubes": [[4, 1, 0, 1], [2, 3, 1]], "walls": [[5, 7], [2, 2], [4, 0], [3, 3], [0, 8], [1, 0]], "goals": [[7, 0]], "par": 3, "req": 1}, {"name": "糸巻き", "hint": "", "cubes": [[0, 4, 2, 1], [1, 4, 3]], "walls": [[0, 5], [4, 3], [8, 6], [6, 1], [6, 6], [2, 2]], "goals": [[1, 2]], "par": 3, "req": 2}, {"name": "舞台", "hint": "ゴール2つ。すべてのゴールにキューブを止めるとクリアです。", "cubes": [[5, 5, 0, 1], [4, 5, 1], [0, 4, 3]], "walls": [[7, 7], [0, 8], [5, 1], [5, 4], [5, 3], [2, 7], [6, 6], [4, 7]], "goals": [[8, 3], [8, 5]], "par": 5, "req": 1}, {"name": "振り子", "hint": "", "cubes": [[8, 8, 3, 1], [8, 6, 1], [3, 8, 2]], "walls": [[7, 7], [2, 1], [4, 0], [7, 8], [5, 1], [3, 3], [4, 3], [5, 4]], "goals": [[8, 0], [8, 4]], "par": 5, "req": 2}, {"name": "歯車", "hint": "", "cubes": [[0, 6, 1, 1], [5, 8, 2], [2, 6, 3]], "walls": [[1, 6], [5, 1], [2, 4], [8, 6], [7, 8], [5, 5], [7, 6], [1, 4]], "goals": [[2, 5], [4, 6]], "par": 4, "req": 3}, {"name": "螺旋", "hint": "", "cubes": [[1, 8, 2], [0, 3, 3], [0, 8, 2], [8, 1, 0, 1]], "walls": [[5, 6], [4, 8], [8, 0], [1, 0], [6, 0], [4, 0], [8, 2], [2, 2]], "goals": [[5, 0], [7, 0]], "par": 6, "req": 2}, {"name": "旋回", "hint": "", "cubes": [[6, 5, 2], [0, 1, 3], [7, 0, 0], [6, 6, 1, 1]], "walls": [[8, 2], [2, 5], [2, 6], [5, 4], [5, 6], [2, 8], [3, 5], [7, 6]], "goals": [[1, 1], [7, 4]], "par": 6, "req": 3}, {"name": "輪舞", "hint": "ゴールが3つになりました。", "cubes": [[7, 3, 1], [0, 2, 3], [2, 5, 2], [8, 2, 2, 1]], "walls": [[2, 7], [0, 5], [8, 1], [2, 6], [1, 6], [0, 4], [3, 4], [8, 3], [6, 6]], "goals": [[0, 1], [6, 2], [6, 3]], "par": 6, "req": 3}, {"name": "竜巻", "hint": "", "cubes": [[7, 1, 2], [7, 2, 0], [8, 1, 3], [6, 6, 1, 1]], "walls": [[2, 5], [4, 5], [3, 0], [1, 4], [3, 3], [6, 2], [7, 6], [5, 7], [1, 2]], "goals": [[8, 0], [6, 3], [7, 8]], "par": 7, "req": 3}, {"name": "大車輪", "hint": "", "cubes": [[1, 3, 3], [0, 2, 3], [7, 0, 0], [4, 0, 3, 1]], "walls": [[0, 5], [1, 7], [0, 3], [3, 0], [0, 4], [6, 6], [4, 5], [0, 1], [7, 6]], "goals": [[1, 0], [1, 1], [5, 6]], "par": 8, "req": 3}, {"name": "公転", "hint": "", "cubes": [[5, 5, 0], [4, 7, 2], [6, 8, 1], [1, 8, 0, 1]], "walls": [[3, 6], [3, 2], [8, 7], [4, 8], [1, 7], [3, 8], [7, 8], [5, 4], [2, 7]], "goals": [[8, 0], [2, 4], [1, 6]], "par": 8, "req": 3}, {"name": "天球", "hint": "", "cubes": [[1, 7, 1], [1, 6, 2], [2, 7, 3], [1, 8, 3, 1]], "walls": [[3, 7], [0, 6], [0, 7], [2, 8], [7, 5], [0, 0], [8, 3], [0, 8], [5, 6]], "goals": [[0, 4], [0, 5], [2, 5]], "par": 8, "req": 4}, {"name": "滑走", "hint": "両矢印のスライドキューブは、矢印の方向へフリックするとぶつかるまで滑ります。滑らせても手数には数えません。", "par": 0, "req": 1, "cubes": [[5, 8, 0, 3]], "walls": [[7, 4], [4, 3], [2, 4], [0, 0], [7, 2]], "goals": [[5, 0]]}, {"name": "横滑り", "hint": "スライドキューブをタップすると縦・横が切り替わります。こちらは1手です。", "par": 1, "req": 1, "cubes": [[7, 7, 0, 3]], "walls": [[8, 4], [2, 8], [3, 1], [8, 8], [3, 5], [6, 7]], "goals": [[3, 8]]}, {"name": "切り返し", "hint": "スライドキューブは、ほかのキューブを止める壁としても使えます。", "par": 2, "req": 2, "cubes": [[7, 7, 1, 3], [6, 7, 1]], "walls": [[6, 4], [1, 6], [8, 4], [2, 0], [7, 4], [6, 2]], "goals": [[1, 8]]}, {"name": "引き戸", "hint": "", "par": 3, "req": 2, "cubes": [[1, 7, 1, 3], [6, 4, 1], [3, 8, 2]], "walls": [[4, 8], [3, 2], [2, 8], [8, 5], [0, 4], [7, 4]], "goals": [[7, 0]]}, {"name": "通い路", "hint": "", "par": 4, "req": 2, "cubes": [[7, 3, 0, 3], [5, 2, 0], [4, 1, 0]], "walls": [[0, 7], [5, 1], [1, 5], [6, 4], [2, 4], [7, 0], [4, 0]], "goals": [[3, 1]]}, {"name": "往復", "hint": "ゴール2つ。すべてのゴールにキューブを止めるとクリアです。", "par": 4, "req": 2, "cubes": [[1, 8, 0, 3], [5, 0, 0], [8, 6, 1]], "walls": [[8, 3], [0, 4], [5, 3], [3, 1], [4, 8], [7, 7], [2, 2]], "goals": [[8, 0], [0, 7]]}, {"name": "車線", "hint": "", "par": 4, "req": 2, "cubes": [[3, 4, 0, 3], [5, 8, 2], [0, 4, 3]], "walls": [[6, 6], [8, 3], [6, 8], [2, 4], [6, 4], [5, 2], [4, 5]], "goals": [[5, 3], [7, 3]]}, {"name": "乗り換え", "hint": "", "par": 4, "req": 3, "cubes": [[0, 4, 0, 3], [7, 5, 1], [8, 5, 1]], "walls": [[1, 6], [6, 7], [2, 1], [6, 6], [2, 4], [6, 2], [6, 1]], "goals": [[0, 5], [2, 5]]}, {"name": "入れ替え", "hint": "", "par": 5, "req": 2, "cubes": [[0, 2, 1, 3], [0, 3, 3], [8, 0, 0]], "walls": [[4, 7], [6, 6], [6, 3], [4, 2], [3, 3], [8, 4], [2, 4]], "goals": [[2, 3], [0, 5]]}, {"name": "転轍", "hint": "", "par": 4, "req": 3, "cubes": [[8, 3, 0, 3], [6, 0, 1], [8, 4, 0]], "walls": [[0, 3], [7, 1], [8, 8], [7, 0], [6, 5], [5, 6], [3, 7]], "goals": [[7, 4], [1, 8]]}, {"name": "連結", "hint": "ゴールが3つになりました。", "par": 4, "req": 3, "cubes": [[5, 2, 1, 3], [5, 3, 0], [6, 2, 3], [0, 7, 2, 1]], "walls": [[1, 8], [3, 4], [3, 2], [2, 6], [2, 2], [0, 0], [7, 2], [0, 8], [8, 0], [3, 7], [4, 5]], "goals": [[0, 6], [0, 1], [8, 1]]}, {"name": "分水嶺", "hint": "", "par": 4, "req": 3, "cubes": [[5, 3, 1, 3], [5, 4, 0], [6, 3, 3], [7, 3, 0, 1]], "walls": [[0, 6], [7, 2], [1, 6], [3, 2], [8, 6], [6, 6], [2, 1], [0, 7], [3, 0], [8, 2], [1, 5]], "goals": [[6, 2], [8, 1], [8, 5]]}, {"name": "交差", "hint": "", "par": 5, "req": 3, "cubes": [[1, 7, 1, 3], [1, 6, 2], [2, 7, 3], [0, 1, 0, 1]], "walls": [[4, 0], [2, 5], [4, 7], [4, 5], [8, 1], [7, 7], [3, 5], [5, 3], [0, 6], [0, 0], [6, 8]], "goals": [[8, 8], [3, 8], [0, 3]]}, {"name": "合流点", "hint": "", "par": 5, "req": 3, "cubes": [[1, 1, 1, 3], [0, 1, 1], [1, 2, 0], [6, 5, 0, 1]], "walls": [[8, 5], [1, 3], [3, 5], [3, 2], [4, 0], [7, 7], [8, 0], [5, 6], [6, 4], [0, 2], [7, 4]], "goals": [[3, 0], [6, 3], [2, 8]]}, {"name": "終着駅", "hint": "", "par": 5, "req": 4, "cubes": [[5, 3, 1, 3], [5, 2, 2], [6, 3, 3], [0, 5, 1, 1]], "walls": [[7, 6], [1, 5], [4, 8], [0, 1], [3, 2], [7, 5], [7, 2], [0, 4], [2, 7], [4, 0], [5, 8]], "goals": [[0, 7], [6, 8], [8, 1]]}];
 const BASE_TICK = 110;
 let TICK = BASE_TICK;
 const $ = s => document.querySelector(s);
@@ -446,9 +468,10 @@ function toast(msg) {
 /* ---------- title intro ---------- */
 let introDone = false, introTimers = [];
 const ORBIT = '<svg class="orbit" viewBox="0 0 100 100" aria-hidden="true"><g class="ring"><circle class="track" cx="50" cy="50" r="41"/><path class="trail" d="M21 21 A41 41 0 0 1 50 9"/><path class="tip" d="M50 1 L62 9 L50 17 Z"/></g></svg>';
-function makeFace(angle, round) {
-  const f = document.createElement('div'); f.className = 'face' + (round ? ' round' : '');
-  f.innerHTML = ARROW + (round ? ORBIT : ''); f.style.transform = `rotate(${angle}deg)`; return f;
+const SLIDE_ARROW = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.2 6.4 8.2h3.8v7.6H6.4l5.6 6 5.6-6h-3.8V8.2h3.8z" fill="currentColor"/></svg><span class="rails"></span>';
+function makeFace(angle, round, slide) {
+  const f = document.createElement('div'); f.className = 'face' + (round ? ' round' : '') + (slide ? ' slide' : '');
+  f.innerHTML = slide ? SLIDE_ARROW : ARROW + (round ? ORBIT : ''); f.style.transform = `rotate(${angle}deg)`; return f;
 }
 function playIntro() {
   const cover = $('#cover'), logo = $('#logo');
@@ -490,14 +513,14 @@ $('#title').addEventListener('pointerdown', e => {
 });
 
 /* ---------- stage select ---------- */
-const GROUPS = [[0, 15, 1], [15, 30, 2], [30, 45, 3], [45, 60, 'r']];
+const GROUPS = [[0, 15, 1], [15, 30, 2], [30, 45, 3], [45, 60, 'r'], [60, 75, 'sl']];
 function goalSwatches(n) { return '<span class="sw"></span>'.repeat(n); }
 function renderSelect() {
   const box = $('#stages'); box.innerHTML = '';
   let total = 0, perfect = 0;
   for (const [a, b, g] of GROUPS) {
     const h = document.createElement('h3'); h.className = 'group';
-    h.innerHTML = g === 'r' ? `<span class="rsw"></span><span>ラウンド</span><small>${a + 1}–${b}</small>` : `${goalSwatches(g)}<span>ゴール${g}つ</span><small>${a + 1}–${b}</small>`;
+    h.innerHTML = g === 'sl' ? `<span class="sldw"></span><span>スライド</span><small>${a + 1}–${b}</small>` : g === 'r' ? `<span class="rsw"></span><span>ラウンド</span><small>${a + 1}–${b}</small>` : `${goalSwatches(g)}<span>ゴール${g}つ</span><small>${a + 1}–${b}</small>`;
     box.appendChild(h);
     const grid = document.createElement('div'); grid.className = 'stagegrid'; box.appendChild(grid);
     for (let i = a; i < b; i++) {
@@ -527,15 +550,15 @@ function renderSelect() {
 const layer = $('#layer');
 function pos(el, x, y) { el.style.transform = `translate(${x * 100}%, ${y * 100}%)`; }
 function staticPiece(cls, x, y) { const d = document.createElement('div'); d.className = 'piece ' + cls; pos(d, x, y); layer.appendChild(d); return d; }
-function cubeLabel(d, round, spin) { return round ? `ラウンドキューブ ${DIRNAME[d]}向き・${spin === 3 ? '反時計回り' : '時計回り'}（矢印キーで向き、スペースで回転方向を変更）` : `キューブ ${DIRNAME[d]}向き（矢印キーで向きを変更）`; }
-function cubeEl(x, y, d, round, spin) {
-  const b = document.createElement('button'); b.className = 'piece cube' + (round ? ' round' : '') + (spin === 3 ? ' ccw' : ''); b.dataset.d = d;
+function cubeLabel(d, round, spin, slide) { if (slide) return `スライドキューブ ${d === 1 ? '横（↔）' : '縦（↕）'}（矢印キーで移動、スペースで縦横を切り替え）`; return round ? `ラウンドキューブ ${DIRNAME[d]}向き・${spin === 3 ? '反時計回り' : '時計回り'}（矢印キーで向き、スペースで回転方向を変更）` : `キューブ ${DIRNAME[d]}向き（矢印キーで向きを変更）`; }
+function cubeEl(x, y, d, round, spin, slide) {
+  const b = document.createElement('button'); b.className = 'piece cube' + (round ? ' round' : '') + (spin === 3 ? ' ccw' : '') + (slide ? ' slide' : ''); b.dataset.d = d;
   const pop = document.createElement('div'); pop.className = 'pop';
-  pop.appendChild(makeFace(d * 90, round)); b.appendChild(pop);
+  pop.appendChild(makeFace(d * 90, round, slide)); b.appendChild(pop);
   const guide = document.createElement('div'); guide.className = 'guide';
   for (let k = 0; k < 4; k++) { const g = document.createElement('span'); g.className = 'g g' + k; g.dataset.d = k; g.innerHTML = ARROW; guide.appendChild(g); }
   b.appendChild(guide);
-  pos(b, x, y); b.setAttribute('aria-label', cubeLabel(d, round, spin));
+  pos(b, x, y); b.setAttribute('aria-label', cubeLabel(d, round, spin, slide));
   layer.appendChild(b); return b;
 }
 
@@ -553,7 +576,7 @@ function setupPlay(lv) {
   goalEls = state.goals.map(g => staticPiece('goal', g[0], g[1]));
   for (const [x, y] of lv.walls) staticPiece('wall', x, y);
   views = state.cubes.map(c => {
-    const el = cubeEl(c.x, c.y, c.d, c.round, c.spin);
+    const el = cubeEl(c.x, c.y, c.d, c.round, c.spin, c.slide);
     const v = { c, el, pop: el.querySelector('.pop'), face: el.querySelector('.face'), guide: el.querySelector('.guide'), angle: c.d * 90, vd: c.d };
     attachFlick(v);
     return v;
@@ -583,7 +606,7 @@ function attachFlick(v) {
   const end = apply => e => {
     if (!drag || drag.v !== v || e.pointerId !== drag.id) return;
     const dir = drag.dir; drag = null; el.classList.remove('dragging'); v.guide.removeAttribute('data-sel');
-    if (apply && dir >= 0) flick(v, dir);
+    if (apply && dir >= 0) { if (v.c.slide) slideMove(v, dir); else flick(v, dir); }
     else if (apply && e.type === 'pointerup') tapCube(v);
   };
   el.addEventListener('pointerup', end(true));
@@ -592,15 +615,17 @@ function attachFlick(v) {
   el.addEventListener('keydown', e => {
     if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); tapCube(v); return; }
     const k = { ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3 }[e.key];
-    if (k == null) return; e.preventDefault(); flick(v, k);
+    if (k == null) return; e.preventDefault(); if (v.c.slide) slideMove(v, k); else flick(v, k);
   });
 }
 function setGuide(v, dir) {
-  v.guide.dataset.cur = targetDir(v.c);
+  if (v.c.slide) { v.guide.dataset.axis = v.c.d; v.guide.dataset.cur = -1; if (dir >= 0 && dir % 2 !== v.c.d) dir = -1; }
+  else { delete v.guide.dataset.axis; v.guide.dataset.cur = targetDir(v.c); }
   if (dir >= 0) v.guide.dataset.sel = dir; else v.guide.removeAttribute('data-sel');
 }
 function targetDir(c) { return c.rot > 0 ? c.nd : c.d; }
 function turnVisual(v, t) {
+  if (v.c.slide) { if (t !== v.vd) { v.angle += 90; v.vd = t; v.face.style.transform = `rotate(${v.angle}deg)`; } return; }
   let delta = (t - v.vd + 4) % 4; if (delta === 3) delta = -1;
   v.angle += delta * 90; v.vd = t; v.face.style.transform = `rotate(${v.angle}deg)`;
 }
@@ -609,6 +634,7 @@ function isMoving(v) {
   const c = v.c;
   if (isOrbiting(v)) return false;          // a round cube circling in open space never settles; don't lock input for it
   if (c.park) return false;                 // round cube that came back to its start and stopped
+  if (c.slide) return v.wasMoving || c.m >= 0;   // slide cubes only move when slid
   if (v.wasMoving) return true;
   if (c.rot > 0) return false;
   const nx = c.x + DX[c.d], ny = c.y + DY[c.d];
@@ -624,8 +650,21 @@ function flick(v, dir) {
   v.el.setAttribute('aria-label', cubeLabel(dir, v.c.round, v.c.spin));
   updateCount();
 }
+// slide: flick along the arrow to slide (free); tap to switch the axis (1 move)
+function slideMove(v, dir) {
+  if (finished || anyMoving()) return;
+  if (!slideCube(state, v.c, dir)) { v.pop.classList.remove('nope'); void v.pop.offsetWidth; v.pop.classList.add('nope'); return; }
+  Snd.se.slide();
+}
+function switchSlide(v) {
+  if (finished || anyMoving() || !switchAxis(v.c)) return;
+  moves++; turnVisual(v, v.c.d); v.el.dataset.d = v.c.d;
+  v.el.setAttribute('aria-label', cubeLabel(v.c.d, false, 1, true));
+  Snd.se.axis(); updateCount();
+}
 // tap (no flick) on a round cube: flip its turning direction. Free — not counted as a move.
 function tapCube(v) {
+  if (v.c.slide) { switchSlide(v); return; }
   if (finished || !v.c.round || anyMoving() || isOrbiting(v)) return;
   toggleSpin(v.c);
   v.el.classList.toggle('ccw', v.c.spin === 3);
@@ -737,13 +776,14 @@ let tool = 'c2';
 const TOOLS = [
   ['c0', '上向きキューブ'], ['c1', '右向きキューブ'], ['c2', '下向きキューブ'], ['c3', '左向きキューブ'],
   ['r0', '上向きラウンド'], ['r1', '右向きラウンド'], ['r2', '下向きラウンド'], ['r3', '左向きラウンド'],
+  ['s0', '縦スライド（↕）'], ['s1', '横スライド（↔）'],
   ['wall', '壁'], ['goal', `ゴール（${MAX_GOALS}つまで）`], ['erase', '消す']
 ];
 (function buildPalette() {
   const p = $('#palette');
   for (const [id, label] of TOOLS) {
     const b = document.createElement('button'); b.className = 'tool'; b.dataset.tool = id; b.setAttribute('aria-label', label);
-    if (id[0] === 'c' || id[0] === 'r') { b.dataset.d = id[1]; b.appendChild(makeFace(+id[1] * 90, id[0] === 'r')); }
+    if (id[0] === 'c' || id[0] === 'r' || id[0] === 's') { b.dataset.d = id[1]; b.appendChild(makeFace(+id[1] * 90, id[0] === 'r', id[0] === 's')); }
     else if (id === 'wall') b.classList.add('t-wall');
     else if (id === 'goal') b.classList.add('t-goal');
     else { b.classList.add('t-erase'); b.textContent = '消す'; }
@@ -759,7 +799,7 @@ function renderEdit() {
   stopLoop(); layer.innerHTML = '';
   for (const [x, y] of edit.goals) staticPiece('goal', x, y);
   for (const [x, y] of edit.walls) staticPiece('wall', x, y);
-  for (const [x, y, d, r] of edit.cubes) cubeEl(x, y, d, !!r, r === 2 ? 3 : 1).tabIndex = -1;
+  for (const [x, y, d, r] of edit.cubes) cubeEl(x, y, r === 3 ? d % 2 : d, r === 1 || r === 2, r === 2 ? 3 : 1, r === 3).tabIndex = -1;
   $('#codeText').value = encodeCode(edit);
 }
 const same = (a, x, y) => a[0] === x && a[1] === y;
@@ -776,6 +816,7 @@ function applyTool(x, y) {
   }
   clearCell(x, y);
   if (tool[0] === 'c') edit.cubes.push([x, y, +tool[1]]);
+  else if (tool[0] === 's') edit.cubes.push([x, y, +tool[1], 3]);
   else if (tool[0] === 'r') edit.cubes.push([x, y, +tool[1], prevSpin === 1 ? 2 : 1]);
   else if (tool === 'wall') edit.walls.push([x, y]);
   else if (tool === 'goal') edit.goals.push([x, y]);
@@ -825,24 +866,25 @@ $('#modePlay').onclick = tryPlay;
 $('#playBtn').onclick = tryPlay;
 $('#clearAll').onclick = () => { edit = { cubes: [], walls: [], goals: [] }; save('pivity.testroom.v2', edit); renderEdit(); };
 
-/* stage code: 81 chars, row by row.  . empty  # wall  G goal  ^ > v < cubes  u r d l round (clockwise)  U R D L round (counter-clockwise) */
+/* stage code: 81 chars, row by row.  . empty  # wall  G goal  ^ > v < cubes  u r d l round (clockwise)  U R D L round (counter-clockwise)  | - slide (vertical / horizontal) */
 function encodeCode(lv) {
   const g = Array(81).fill('.');
   for (const [x, y] of lv.walls) g[y * 9 + x] = '#';
   for (const [x, y] of lv.goals) g[y * 9 + x] = 'G';
-  for (const [x, y, d, r] of lv.cubes) g[y * 9 + x] = (r === 2 ? 'URDL' : r ? 'urdl' : '^>v<')[d];
+  for (const [x, y, d, r] of lv.cubes) g[y * 9 + x] = r === 3 ? '|-'[d % 2] : (r === 2 ? 'URDL' : r ? 'urdl' : '^>v<')[d];
   let s = 'PIVITY:'; for (let r = 0; r < 9; r++) s += g.slice(r * 9, r * 9 + 9).join('') + (r < 8 ? '/' : '');
   return s;
 }
 function decodeCode(str) {
   const body = str.trim().replace(/^PIVITY:/i, '').replace(/[\/\s]/g, '');
-  if (body.length !== 81 || /[^.#G^>v<urdlURDL]/.test(body)) return null;
+  if (body.length !== 81 || /[^.#G^>v<urdlURDL|\-]/.test(body)) return null;
   const lv = { cubes: [], walls: [], goals: [] };
   for (let i = 0; i < 81; i++) {
     const ch = body[i], x = i % 9, y = (i / 9) | 0;
     if (ch === '#') lv.walls.push([x, y]);
     else if (ch === 'G') lv.goals.push([x, y]);
     else if ('urdl'.includes(ch)) lv.cubes.push([x, y, 'urdl'.indexOf(ch), 1]);
+    else if (ch === '|' || ch === '-') lv.cubes.push([x, y, ch === '-' ? 1 : 0, 3]);
     else if ('URDL'.includes(ch)) lv.cubes.push([x, y, 'URDL'.indexOf(ch), 2]);
     else if (ch !== '.') lv.cubes.push([x, y, '^>v<'.indexOf(ch)]);
   }
@@ -913,6 +955,8 @@ const Snd = (() => {
   const FLICK = [81, 78, 74, 76]; // ↑A5 →F#5 ↓D5 ←E5
   const se = {
     ui() { const t = now(); tone(1320, t, 0.05, { vol: 0.06 }); },
+    slide() { const t = now(); noise(t, 0.16, { type: 'bandpass', freq: 1800, q: 0.7, vol: 0.09 }); tone(mtof(74), t, 0.1, { from: mtof(69), glide: 0.08, vol: 0.08 }); },
+    axis() { const t = now(); tone(mtof(81), t, 0.06, { type: 'triangle', vol: 0.14 }); tone(mtof(86), t + 0.05, 0.1, { type: 'triangle', vol: 0.12 }); },
     spin(ccw) { const t = now(), a = mtof(ccw ? 83 : 79), b = mtof(ccw ? 79 : 83); tone(a, t, 0.08, { vol: 0.12 }); tone(b, t + 0.06, 0.12, { vol: 0.12 }); },
     flick(d) { const t = now(), f = mtof(FLICK[d]); tone(f, t, 0.14, { from: f * 0.7, glide: 0.05, vol: 0.2 }); tone(f * 2, t + 0.02, 0.08, { vol: 0.05 }); noise(t, 0.06, { freq: 3000, q: 0.8, vol: 0.04 }); },
     bump() { const t = now(); tone(110, t, 0.18, { type: 'triangle', from: 240, glide: 0.1, vol: 0.35 }); noise(t, 0.08, { type: 'lowpass', freq: 900, vol: 0.18 }); },
